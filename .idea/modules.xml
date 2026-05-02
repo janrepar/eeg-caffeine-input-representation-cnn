@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/RawVsFeatureProject-MSc.iml" filepath="$PROJECT_DIR$/.idea/RawVsFeatureProject-MSc.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/eeg-caffeine-input-representation-cnn.iml" filepath="$PROJECT_DIR$/.idea/eeg-caffeine-input-representation-cnn.iml" />
     </modules>
   </component>
 </project>

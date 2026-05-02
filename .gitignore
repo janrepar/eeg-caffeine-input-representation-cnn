@@ -183,3 +183,7 @@ fabric.properties
 
 # idea folder, uncomment if you don't need it
 # .idea
+
+data/
+data/Caffeine data 20250311.mat
+data/Final_ALLEEG_datasets_Coffe.mat
