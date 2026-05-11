@@ -1,0 +1,68 @@
+project:
+  name: eeg-caffeine-input-representation-cnn
+  random_seed: 42
+
+data:
+  data_path: data/raw/Caffeine_data_20250311.mat
+  sampling_rate: 600
+  include_conditions:
+    - Before
+    - After
+  exclude_subjects: []
+  raw_dataset_output: data/processed/raw_dataset.npz
+  feature_dataset_output: data/processed/feature_dataset.npz
+
+features:
+  use_statistical: true
+  use_frequency: true
+  use_entropy: true
+  frequency_bands:
+    delta: [0.5, 4]
+    theta: [4, 8]
+    alpha: [8, 13]
+    beta: [13, 30]
+    gamma: [30, 100]
+  welch_nperseg: 256
+
+validation:
+  method: LOSO
+  use_validation_subject: true
+  validation_seed: 42
+
+training:
+  epochs: 100
+  batch_size: 32
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  patience: 15
+  device: auto
+
+model:
+  raw_model:
+    name: EEGNetLike
+    dropout: 0.5
+    temporal_filters: 8
+    depth_multiplier: 2
+    temporal_kernel_size: 64
+    separable_kernel_size: 16
+
+  features_1d_model:
+    name: CNNFeatures1D
+    dropout: 0.5
+
+  features_2d_model:
+    name: CNNFeatures2D
+    dropout: 0.5
+
+  hybrid_model:
+    name: HybridEEGFeatureCNN
+    dropout: 0.5
+
+outputs:
+  output_dir: outputs
+  models_dir: outputs/models
+  results_dir: outputs/results
+  plots_dir: outputs/plots
+  save_models: true
+  save_predictions: true
+  save_metrics: true

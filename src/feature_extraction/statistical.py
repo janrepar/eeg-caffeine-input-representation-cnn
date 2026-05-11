@@ -13,7 +13,6 @@ def extract_statistical_features(signal: np.ndarray) -> list[float]:
         float(np.max(signal)),
     ]
 
-
 STATISTICAL_FEATURE_NAMES = [
     "mean",
     "std",

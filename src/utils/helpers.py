@@ -1,4 +1,6 @@
 import numpy as np
+import yaml
+
 
 def get_scalar(value):
     """
@@ -23,3 +25,13 @@ def condition_to_label(condition: str) -> int:
         return 1
 
     raise ValueError(f"Unknown condition: {condition}")
+
+
+def load_config(config_path: str = "config.yaml") -> dict:
+    """
+    Loads YAML configuration file.
+    """
+    with open(config_path, "r", encoding="utf-8") as file:
+        config = yaml.safe_load(file)
+
+    return config

@@ -184,5 +184,8 @@ fabric.properties
 # idea folder, uncomment if you don't need it
 # .idea
 
-data/Caffeine data 20250311.mat
-data/Final_ALLEEG_datasets_Coffe.mat
+data/raw/Caffeine_data_20250311.mat
+data/raw/Final_ALLEEG_datasets_Coffe.mat
+
+*.mat
+*.npz

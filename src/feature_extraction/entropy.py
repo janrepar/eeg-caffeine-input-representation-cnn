@@ -17,7 +17,6 @@ def extract_entropy_features(signal: np.ndarray, fs: int) -> list[float]:
         spectral_entropy(signal, fs)
     ]
 
-
 ENTROPY_FEATURE_NAMES = [
-    "spectral_entropy"
+    "spectral_entropy",
 ]
