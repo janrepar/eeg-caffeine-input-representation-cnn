@@ -1,7 +1,7 @@
 import numpy as np
 
-from src.feature_extraction.statistical import (
-    extract_statistical_features,
+from src.feature_extraction.time import (
+    extract_time_features,
     STATISTICAL_FEATURE_NAMES,
 )
 from src.feature_extraction.frequency import (
@@ -21,7 +21,7 @@ def get_feature_names_per_channel(feature_config: dict | None = None) -> list[st
 
     if feature_config is None:
         feature_config = {
-            "use_statistical": True,
+            "use_time": True,
             "use_frequency": True,
             "use_entropy": True,
             "frequency_bands": {
@@ -35,7 +35,7 @@ def get_feature_names_per_channel(feature_config: dict | None = None) -> list[st
 
     feature_names = []
 
-    if feature_config.get("use_statistical", True):
+    if feature_config.get("use_time", True):
         feature_names.extend(STATISTICAL_FEATURE_NAMES)
 
     if feature_config.get("use_frequency", True):
@@ -57,7 +57,7 @@ def extract_channel_features(signal: np.ndarray, fs: int, feature_config: dict |
 
     if feature_config is None:
         feature_config = {
-            "use_statistical": True,
+            "use_time": True,
             "use_frequency": True,
             "use_entropy": True,
             "frequency_bands": {
@@ -71,8 +71,8 @@ def extract_channel_features(signal: np.ndarray, fs: int, feature_config: dict |
 
     features = []
 
-    if feature_config.get("use_statistical", True):
-        features.extend(extract_statistical_features(signal))
+    if feature_config.get("use_time", True):
+        features.extend(extract_time_features(signal))
 
     if feature_config.get("use_frequency", True):
         frequency_bands = feature_config.get("frequency_bands", None)

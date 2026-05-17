@@ -27,6 +27,16 @@ def condition_to_label(condition: str) -> int:
     raise ValueError(f"Unknown condition: {condition}")
 
 
+def label_to_condition(label: int) -> str:
+    if int(label) == 0:
+        return "Before"
+
+    if int(label) == 1:
+        return "After"
+
+    raise ValueError(f"Unknown label: {label}")
+
+
 def load_config(config_path: str = "config.yaml") -> dict:
     """
     Loads YAML configuration file.

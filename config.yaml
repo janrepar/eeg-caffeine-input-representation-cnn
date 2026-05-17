@@ -13,7 +13,7 @@ data:
   feature_dataset_output: data/processed/feature_dataset.npz
 
 features:
-  use_statistical: true
+  use_time: true
   use_frequency: true
   use_entropy: true
   frequency_bands:
@@ -21,7 +21,7 @@ features:
     theta: [4, 8]
     alpha: [8, 13]
     beta: [13, 30]
-    gamma: [30, 100]
+    gamma: [30, 45]
   welch_nperseg: 256
 
 validation:
@@ -30,11 +30,12 @@ validation:
   validation_seed: 42
 
 training:
-  epochs: 100
+  epochs: 5 # 100
   batch_size: 32
   learning_rate: 0.001
   weight_decay: 0.0001
-  patience: 15
+  patience: 3 # 15
+  validation_frequency: 30
   device: auto
 
 model:

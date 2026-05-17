@@ -1,0 +1,343 @@
+import csv
+from pathlib import Path
+from datetime import datetime
+
+import numpy as np
+import torch
+import shutil
+
+
+def load_dataset_npz(path):
+    """
+    Loads dataset saved as .npz.
+    Expected keys: X, y, subjects, conditions
+    """
+
+    data = np.load(path, allow_pickle=True)
+
+    return (
+        data["X"],
+        data["y"],
+        data["subjects"],
+        data["conditions"],
+    )
+
+
+def get_device(config):
+    """
+    Returns torch device based on config.
+    """
+
+    device_config = config["training"].get("device", "auto")
+
+    if device_config == "auto":
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    return torch.device(device_config)
+
+
+def ensure_output_dirs(config):
+    """
+    Creates output directories and returns paths.
+    """
+
+    outputs_config = config["outputs"]
+
+    models_dir = Path(outputs_config["models_dir"])
+    results_dir = Path(outputs_config["results_dir"])
+    plots_dir = Path(outputs_config["plots_dir"])
+
+    models_dir.mkdir(parents=True, exist_ok=True)
+    results_dir.mkdir(parents=True, exist_ok=True)
+    plots_dir.mkdir(parents=True, exist_ok=True)
+
+    return models_dir, results_dir, plots_dir
+
+
+def save_config_copy(config_path, output_dir):
+    """
+    Saves a copy of config.yaml into the experiment output folder.
+    """
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    shutil.copy(config_path, output_dir / "config_used.yaml")
+
+
+def create_experiment_output_dirs(config, model_name: str):
+    """
+    Creates unique output directories for one experiment run.
+
+    Example:
+        outputs/models/raw_eegnetlike_2026-05-16_1432
+        outputs/results/raw_eegnetlike_2026-05-16_1432
+        outputs/plots/raw_eegnetlike_2026-05-16_1432
+    """
+
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    experiment_name = f"{model_name}_{timestamp}"
+
+    outputs_config = config["outputs"]
+
+    models_dir = Path(outputs_config["models_dir"]) / experiment_name
+    results_dir = Path(outputs_config["results_dir"]) / experiment_name
+    plots_dir = Path(outputs_config["plots_dir"]) / experiment_name
+
+    models_dir.mkdir(parents=True, exist_ok=False)
+    results_dir.mkdir(parents=True, exist_ok=False)
+    plots_dir.mkdir(parents=True, exist_ok=False)
+
+    return models_dir, results_dir, plots_dir, experiment_name
+
+
+def print_metric_summary(metrics):
+    """
+    Prints classification metrics.
+    """
+
+    print(f"Accuracy:  {metrics['accuracy']:.4f}")
+    print(f"Precision: {metrics['precision']:.4f}")
+    print(f"Recall:    {metrics['recall']:.4f}")
+    print(f"F1:        {metrics['f1']:.4f}")
+
+    if "roc_auc" in metrics:
+        print(f"ROC-AUC:   {metrics['roc_auc']:.4f}")
+
+    print("Confusion matrix:")
+    print(metrics["confusion_matrix"])
+
+
+def summarize_metric_list(name, metrics_list):
+    """
+    Prints mean and standard deviation of metrics across LOSO folds.
+    """
+
+    print(f"\n{name}")
+
+    summary = {}
+
+    for metric_name in ["accuracy", "precision", "recall", "f1"]:
+        values = np.array([m[metric_name] for m in metrics_list], dtype=float)
+
+        mean = values.mean()
+        std = values.std()
+
+        summary[f"{metric_name}_mean"] = mean
+        summary[f"{metric_name}_std"] = std
+
+        print(f"{metric_name}: {mean:.4f} ± {std:.4f}")
+
+    if "roc_auc" in metrics_list[0]:
+        values = np.array([m["roc_auc"] for m in metrics_list], dtype=float)
+        values = values[~np.isnan(values)]
+
+        if len(values) > 0:
+            mean = values.mean()
+            std = values.std()
+
+            summary["roc_auc_mean"] = mean
+            summary["roc_auc_std"] = std
+
+            print(f"roc_auc: {mean:.4f} ± {std:.4f}")
+
+    return summary
+
+
+def save_fold_metrics_csv(results_path, fold_rows):
+    """
+    Saves fold-level metrics to CSV.
+    """
+
+    results_path = Path(results_path)
+    results_path.parent.mkdir(parents=True, exist_ok=True)
+
+    fieldnames = [
+        "fold",
+        "test_subject",
+        "val_subject",
+        "epoch_accuracy",
+        "epoch_precision",
+        "epoch_recall",
+        "epoch_f1",
+        "epoch_roc_auc",
+        "majority_accuracy",
+        "majority_precision",
+        "majority_recall",
+        "majority_f1",
+        "probability_accuracy",
+        "probability_precision",
+        "probability_recall",
+        "probability_f1"
+    ]
+
+    with open(results_path, "w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(fold_rows)
+
+    print(f"Saved fold metrics to: {results_path}")
+
+
+def standardize_features_train_val_test(X_train, X_val, X_test):
+    """
+    Z-score standardization using training data only.
+
+    Works for feature datasets:
+        (n_epochs, n_channels, n_features)
+        or
+        (n_epochs, n_features_flat)
+
+    This avoids leakage from validation/test into training.
+    """
+
+    mean = X_train.mean(axis=0, keepdims=True)
+    std = X_train.std(axis=0, keepdims=True)
+
+    std = np.where(std == 0, 1.0, std)
+
+    X_train_std = (X_train - mean) / std
+    X_val_std = (X_val - mean) / std
+    X_test_std = (X_test - mean) / std
+
+    return (
+        X_train_std.astype(np.float32),
+        X_val_std.astype(np.float32),
+        X_test_std.astype(np.float32),
+    )
+
+
+def save_loso_summary_report(output_path, analysis_name, number_of_folds, train_accuracies, test_accuracies, config, data_augmentation=False):
+    """
+    Saves LOSO summary report as .txt.
+    """
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    train_accuracies = np.asarray(train_accuracies, dtype=float)
+    test_accuracies = np.asarray(test_accuracies, dtype=float)
+
+    train_mean = train_accuracies.mean() * 100
+    train_std = train_accuracies.std() * 100
+
+    test_mean = test_accuracies.mean() * 100
+    test_std = test_accuracies.std() * 100
+
+    train_test_gap = train_mean - test_mean
+
+    training_config = config["training"]
+    validation_config = config["validation"]
+    model_config = config["model"]["raw_model"]
+
+    with open(output_path, "w", encoding="utf-8") as file:
+        file.write("LOSO Cross-Validation Summary\n")
+        file.write("=============================\n\n")
+
+        file.write(f"Analysis: {analysis_name}\n")
+        file.write(f"Number of folds: {number_of_folds}\n")
+        file.write(f"Validation method: {validation_config.get('method', 'LOSO')}\n")
+        file.write(f"Data Augmentation: {'ENABLED' if data_augmentation else 'DISABLED'}\n\n")
+
+        file.write("Performance:\n")
+        file.write(f"Training Accuracy: {train_mean:.2f}% ± {train_std:.2f}%\n")
+        file.write(f"Testing Accuracy: {test_mean:.2f}% ± {test_std:.2f}%\n")
+        file.write(f"Train-Test Gap: {train_test_gap:.2f}%\n\n")
+
+        file.write("Training Parameters:\n")
+        file.write(f"Epochs: {training_config['epochs']}\n")
+        file.write(f"Batch size: {training_config['batch_size']}\n")
+        file.write(f"Learning rate: {training_config['learning_rate']}\n")
+        file.write(f"Weight decay: {training_config['weight_decay']}\n")
+        file.write(f"Patience: {training_config['patience']}\n\n")
+
+        file.write("Model Parameters:\n")
+        file.write(f"Model: {model_config.get('name', 'EEGNetLike')}\n")
+        file.write(f"Dropout: {model_config.get('dropout')}\n")
+        file.write(f"Temporal filters: {model_config.get('temporal_filters')}\n")
+        file.write(f"Depth multiplier: {model_config.get('depth_multiplier')}\n")
+        file.write(f"Temporal kernel size: {model_config.get('temporal_kernel_size')}\n")
+        file.write(f"Separable kernel size: {model_config.get('separable_kernel_size')}\n")
+
+
+import torch
+
+
+def save_model_checkpoint(model_path, model, model_name: str, model_config: dict, training_config: dict, fold_idx: int, test_subject, val_subject, input_shape: tuple, history: dict, extra: dict | None = None):
+    """
+    Saves a generic PyTorch model checkpoint.
+
+    Works for:
+        - EEGNetLike raw model
+        - CNNFeatures1D
+        - CNNFeatures2D
+        - Hybrid models
+
+    Parameters
+    ----------
+    input_shape:
+        Shape of one input sample excluding batch dimension.
+
+        Examples:
+            EEGNetLike: (1, 32, 900)
+            CNNFeatures1D: (1, 416)
+            CNNFeatures2D: (1, 32, 13)
+            Hybrid: can be stored in extra
+    """
+
+    checkpoint = {
+        "model_state_dict": model.state_dict(),
+        "model_name": model_name,
+        "model_config": model_config,
+        "training_config": training_config,
+        "fold": fold_idx,
+        "test_subject": test_subject,
+        "val_subject": val_subject,
+        "input_shape": input_shape,
+        "history": history
+    }
+
+    if extra is not None:
+        checkpoint["extra"] = extra
+
+    torch.save(checkpoint, model_path)
+
+    print(f"Saved model checkpoint: {model_path}")
+
+
+def load_model_checkpoint(model_path, model_class, model_kwargs: dict, device):
+    """
+    Loads a generic PyTorch model checkpoint.
+
+    Parameters
+    ----------
+    model_path: Path to .pt checkpoint.
+    model_class:
+        Class of the model to instantiate, e.g.
+            EEGNetLike
+            CNNFeatures1D
+            CNNFeatures2D
+
+    model_kwargs: Arguments needed to reconstruct the model.
+    device: torch.device
+
+    Returns
+    -------
+    model: Loaded model in eval mode.
+    checkpoint: Full checkpoint dictionary.
+    """
+
+    checkpoint = torch.load(model_path, map_location=device)
+
+    if not isinstance(checkpoint, dict) or "model_state_dict" not in checkpoint:
+        raise ValueError(
+            "Invalid checkpoint format. Expected a dictionary with key 'model_state_dict'."
+        )
+
+    model = model_class(**model_kwargs)
+    model.load_state_dict(checkpoint["model_state_dict"])
+
+    model.to(device)
+    model.eval()
+
+    return model, checkpoint

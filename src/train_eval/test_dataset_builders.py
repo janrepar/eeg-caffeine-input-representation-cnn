@@ -6,7 +6,7 @@ import numpy as np
 from scipy.io import loadmat
 
 # Make project root available for imports
-sys.path.append(os.path.abspath("."))
+sys.path.append(os.path.abspath(""))
 
 from src.utils.helpers import load_config
 from data.build_raw_dataset import build_raw_dataset_from_alleeg

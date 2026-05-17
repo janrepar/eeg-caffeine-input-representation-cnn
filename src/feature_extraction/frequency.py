@@ -8,7 +8,7 @@ DEFAULT_EEG_BANDS = {
     "theta": (4, 8),
     "alpha": (8, 13),
     "beta": (13, 30),
-    "gamma": (30, 100),
+    "gamma": (30, 45),
 }
 
 
