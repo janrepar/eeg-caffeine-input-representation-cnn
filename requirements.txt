@@ -5,3 +5,4 @@ numpy
 pyyaml
 torch
 scikit-learn
+pandas

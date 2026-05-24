@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -8,11 +9,11 @@ import torch
 sys.path.append(os.path.abspath("."))
 
 from src.models.cnn_eegnetlike import EEGNetLike
-from src.train_eval.split import (create_loso_splits, create_train_val_split_by_subject)
-from src.train_eval.train import train_binary_model
-from src.train_eval.evaluate import ( predict_binary_model, compute_binary_metrics, aggregate_majority_vote, aggregate_mean_probability, metrics_from_aggregated_results)
-from src.train_eval.common import (load_dataset_npz, get_device, create_experiment_output_dirs, print_metric_summary, summarize_metric_list, save_fold_metrics_csv, save_loso_summary_report, save_config_copy, save_model_checkpoint)
-from src.train_eval.visualizations import (plot_training_history, plot_training_history_by_iteration, save_confusion_matrix_plot, plot_metric_by_fold, plot_epoch_metrics_summary, plot_roc_curve_for_fold, plot_all_folds_roc_curve,save_final_confusion_matrices, plot_loso_performance_summary)
+from src.train_eval.split import (create_loso_splits, create_groupkfold_splits, create_train_val_split_by_subject)
+from src.train_eval.train import train_multiclass_model
+from src.train_eval.evaluate import (predict_multiclass_model, compute_binary_metrics)
+from src.train_eval.common import (load_dataset_npz, get_device, create_experiment_output_dirs, print_metric_summary, summarize_metric_list, save_fold_metrics_csv, save_loso_summary_report, save_config_copy, save_model_checkpoint, standardize_raw_train_val_test)
+from src.train_eval.visualizations import (plot_training_history, plot_training_history_by_iteration, save_confusion_matrix_plot, plot_metric_by_fold, plot_epoch_metrics_summary, plot_roc_curve_for_fold, plot_all_folds_roc_curve,save_final_confusion_matrix, plot_loso_performance_summary)
 from src.utils.helpers import load_config
 
 
@@ -30,8 +31,12 @@ def results_to_y_arrays(results):
 def main():
     config = load_config("config.yaml")
 
-    if config["validation"].get("method", "LOSO").upper() != "LOSO":
-        raise ValueError("This runner currently supports only LOSO validation.")
+    run_start_time = time.perf_counter()
+
+    validation_method = config["validation"].get("method", "LOSO").upper()
+
+    if validation_method not in ["LOSO", "GROUPKFOLD"]:
+        raise ValueError(f"Unsupported validation method: {validation_method}")
 
     raw_dataset_path = config["data"]["raw_dataset_output"]
 
@@ -51,7 +56,7 @@ def main():
     print(f"Results directory: {results_dir}")
     print(f"Plots directory: {plots_dir}")
 
-    X_raw, y, subjects, conditions = load_dataset_npz(raw_dataset_path)
+    X_raw, y, subjects, conditions, groups = load_dataset_npz(raw_dataset_path)
 
     print("Loaded raw dataset")
     print("X_raw:", X_raw.shape)
@@ -59,13 +64,75 @@ def main():
     print("subjects:", subjects.shape)
     print("conditions:", conditions.shape)
 
+    if groups is not None:
+        print("groups:", groups.shape)
+
+    analysis_type = config.get("experiment", {}).get("analysis_type", "before_vs_after")
+
+    print(f"\nAnalysis type: {analysis_type}")
+    print(f"\nValidation method: {validation_method}")
+
+    if analysis_type == "caffeine_before_vs_after":
+        if groups is None:
+            raise ValueError("Dataset does not contain groups. Rebuild dataset with groups.")
+
+        mask = groups == "Caffeine"
+
+        X_raw = X_raw[mask]
+        y = y[mask]
+        subjects = subjects[mask]
+        conditions = conditions[mask]
+        groups = groups[mask]
+
+        print("\nUsing only Caffeine group.")
+        print("X_raw:", X_raw.shape)
+        print("Subjects:", np.unique(subjects))
+        print("Number of subjects:", len(np.unique(subjects)))
+        print("Validation method:", validation_method)
+
+    elif analysis_type == "placebo_before_vs_after":
+        if groups is None:
+            raise ValueError("Dataset does not contain groups. Rebuild dataset with groups.")
+
+        mask = groups == "Placebo"
+
+        X_raw = X_raw[mask]
+        y = y[mask]
+        subjects = subjects[mask]
+        conditions = conditions[mask]
+        groups = groups[mask]
+
+        print("\nUsing only Placebo group.")
+        print("X_raw:", X_raw.shape)
+        print("Subjects:", np.unique(subjects))
+        print("Number of subjects:", len(np.unique(subjects)))
+
+    elif analysis_type == "before_vs_after":
+        print("\nUsing all subjects: Before vs After.")
+        print("X_raw:", X_raw.shape)
+        print("Subjects:", np.unique(subjects))
+        print("Number of subjects:", len(np.unique(subjects)))
+
+    else:
+        raise ValueError(f"Unknown analysis_type: {analysis_type}")
+
+    print("\nDataset after analysis filtering:")
+    print("X_raw:", X_raw.shape)
+    print("y:", y.shape)
+    print("subjects:", subjects.shape)
+    print("conditions:", conditions.shape)
+    print("Unique subjects:", np.unique(subjects))
+    print("Number of subjects:", len(np.unique(subjects)))
+    print("Before epochs:", np.sum(y == 0))
+    print("After epochs:", np.sum(y == 1))
+
     # Raw EEG:
     # from (n_epochs, n_channels, n_timepoints)
     # to (n_epochs, 1, n_channels, n_timepoints)
-    X_tensor = torch.tensor(X_raw, dtype=torch.float32).unsqueeze(1)
-    y_tensor_all = torch.tensor(y, dtype=torch.float32)
+    # X_tensor = torch.tensor(X_raw, dtype=torch.float32).unsqueeze(1)
+    # y_tensor_all = torch.tensor(y, dtype=torch.float32)
 
-    print("PyTorch input shape:", X_tensor.shape)
+    print("Raw EEG input shape before fold-wise standardization:", X_raw.shape)
 
     device = get_device(config)
     print("Device:", device)
@@ -80,12 +147,32 @@ def main():
     validation_seed = config["validation"].get("validation_seed", config["project"]["random_seed"])
 
     use_validation_subject = config["validation"].get("use_validation_subject", True)
+    n_validation_subjects = config["validation"].get("n_validation_subjects", 1)
 
-    loso_splits = create_loso_splits(subjects)
+    early_stopping_metric = training_config.get("early_stopping_metric", "val_loss")
+    label_smoothing = training_config.get("label_smoothing", 0.0)
+
+    print(f"Validation subjects per fold: {n_validation_subjects}")
+    print(f"Early stopping metric: {early_stopping_metric}")
+    print(f"Label smoothing: {label_smoothing}")
+
+    if validation_method == "LOSO":
+        splits = create_loso_splits(subjects)
+
+    elif validation_method == "GROUPKFOLD":
+        n_splits = config["validation"].get("n_splits", 5)
+
+        splits = create_groupkfold_splits(
+            subjects=subjects,
+            n_splits=n_splits,
+        )
+
+    else:
+        raise ValueError(f"Unsupported validation method: {validation_method}")
 
     all_epoch_metrics = []
-    all_majority_metrics = []
-    all_probability_metrics = []
+    #all_majority_metrics = []
+    #all_probability_metrics = []
 
     fold_rows = []
     fold_roc_data = []
@@ -93,52 +180,86 @@ def main():
     all_y_true_epoch = []
     all_y_pred_epoch = []
 
-    all_y_true_majority = []
-    all_y_pred_majority = []
+    #all_y_true_majority = []
+    #all_y_pred_majority = []
 
-    all_y_true_probability = []
-    all_y_pred_probability = []
+    #all_y_true_probability = []
+    #all_y_pred_probability = []
 
     train_accuracies_for_summary = []
     test_accuracies_for_summary = []
 
-    for fold_idx, split in enumerate(loso_splits, start=1):
-        test_subject = split["test_subject"]
+    for fold_idx, split in enumerate(splits, start=1):
+        if "test_subjects" in split:
+            test_subjects = np.asarray(split["test_subjects"])
+        else:
+            test_subjects = np.asarray([split["test_subject"]])
+
+        test_subject_label = "_".join(map(str, test_subjects))
 
         print("\n" + "=" * 80)
-        print(f"Fold {fold_idx}/{len(loso_splits)} | Test subject: {test_subject}")
+        print(f"Fold {fold_idx}/{len(splits)} | Test subjects: {test_subjects}")
         print("=" * 80)
 
         if use_validation_subject:
-            train_mask, val_mask, val_subject = create_train_val_split_by_subject(
+            train_mask, val_mask, val_subjects = create_train_val_split_by_subject(
                 subjects=subjects,
                 train_mask=split["train_mask"],
-                random_seed=validation_seed + fold_idx
+                random_seed=validation_seed + fold_idx,
+                n_validation_subjects=n_validation_subjects
             )
         else:
             train_mask = split["train_mask"]
             val_mask = split["test_mask"]
-            val_subject = "TEST_USED_AS_VAL"
+            val_subjects = np.array(["TEST_USED_AS_VAL"])
 
         test_mask = split["test_mask"]
 
-        print(f"Validation subject: {val_subject}")
+        print(f"Validation subjects: {val_subjects}")
         print(f"Train epochs: {train_mask.sum()}")
         print(f"Val epochs: {val_mask.sum()}")
         print(f"Test epochs: {test_mask.sum()}")
 
-        X_train = X_tensor[train_mask]
-        y_train = y_tensor_all[train_mask]
+        # X_train = X_tensor[train_mask]
+        # y_train = y_tensor_all[train_mask]
 
-        X_val = X_tensor[val_mask]
-        y_val = y_tensor_all[val_mask]
+        # X_val = X_tensor[val_mask]
+        # y_val = y_tensor_all[val_mask]
 
-        X_test = X_tensor[test_mask]
+        # X_test = X_tensor[test_mask]
+        # y_test = y[test_mask]
+
+        X_train_np = X_raw[train_mask]
+        y_train_np = y[train_mask]
+
+        X_val_np = X_raw[val_mask]
+        y_val_np = y[val_mask]
+
+        X_test_np = X_raw[test_mask]
         y_test = y[test_mask]
+
+        X_train_np, X_val_np, X_test_np = standardize_raw_train_val_test(
+            X_train_np,
+            X_val_np,
+            X_test_np,
+        )
+
+        X_train = torch.tensor(X_train_np, dtype=torch.float32).unsqueeze(1)
+        y_train = torch.tensor(y_train_np, dtype=torch.long)
+
+        X_val = torch.tensor(X_val_np, dtype=torch.float32).unsqueeze(1)
+        y_val = torch.tensor(y_val_np, dtype=torch.long)
+
+        X_test = torch.tensor(X_test_np, dtype=torch.float32).unsqueeze(1)
+
+        print("X_train:", X_train.shape)
+        print("X_val:", X_val.shape)
+        print("X_test:", X_test.shape)
 
         model = EEGNetLike(
             n_channels=n_channels,
             n_timepoints=n_timepoints,
+            n_classes=2,
             dropout=model_config.get("dropout", 0.5),
             temporal_filters=model_config.get("temporal_filters", 8),
             depth_multiplier=model_config.get("depth_multiplier", 2),
@@ -146,7 +267,7 @@ def main():
             separable_kernel_size=model_config.get("separable_kernel_size", 16)
         )
 
-        model, history = train_binary_model(
+        model, history = train_multiclass_model(
             model=model,
             X_train=X_train,
             y_train=y_train,
@@ -157,7 +278,17 @@ def main():
             batch_size=training_config["batch_size"],
             learning_rate=training_config["learning_rate"],
             weight_decay=training_config["weight_decay"],
-            patience=training_config["patience"]
+            patience=training_config["patience"],
+            validation_frequency=training_config.get("validation_frequency", 30),
+            early_stopping_metric=early_stopping_metric,
+            label_smoothing=label_smoothing
+        )
+
+        print(
+            f"Best epoch: {history['best_epoch']} | "
+            f"Best val loss: {history['best_val_loss']:.4f} | "
+            f"Best val acc: {history['best_val_acc']:.4f} | "
+            f"Best train acc: {history['best_train_acc']:.4f}"
         )
 
         # Training progress plots
@@ -165,7 +296,7 @@ def main():
             history=history,
             output_dir=plots_dir / "training_history",
             fold_idx=fold_idx,
-            test_subject=test_subject,
+            test_subject=test_subject_label,
             model_name="Raw EEGNet-like CNN"
         )
 
@@ -173,11 +304,12 @@ def main():
             history=history,
             output_dir=plots_dir / "training_history_iteration",
             fold_idx=fold_idx,
-            test_subject=test_subject,
+            test_subject=test_subject_label,
             model_name="Raw EEGNet-like CNN"
         )
 
-        y_prob, y_pred = predict_binary_model(
+        # TEST set
+        y_prob, y_pred = predict_multiclass_model(
             model=model,
             X=X_test,
             device=device
@@ -202,21 +334,22 @@ def main():
         # Save epoch-level confusion matrix per fold
         save_confusion_matrix_plot(
             confusion_matrix=epoch_metrics["confusion_matrix"],
-            output_path=plots_dir / "confusion_matrices" / f"epoch_fold_{fold_idx}_subject_{test_subject}.png",
-            title=f"Epoch-level confusion matrix - Fold {fold_idx}, Subject {test_subject}"
+            output_path=plots_dir / "confusion_matrices" / f"epoch_fold_{fold_idx}_subjects_{test_subject_label}.png",
+            title=f"Epoch-level confusion matrix - Fold {fold_idx}, Subjects {test_subject_label}"
         )
 
         # Save ROC per fold
         plot_roc_curve_for_fold(
             y_true=y_test,
             y_prob=y_prob,
-            output_path=plots_dir / "roc_curves" / f"roc_fold_{fold_idx}_subject_{test_subject}.png",
-            title=f"ROC curve - Fold {fold_idx}, Subject {test_subject}"
+            output_path=plots_dir / "roc_curves" / f"roc_fold_{fold_idx}_subjects_{test_subject_label}.png",
+            title=f"ROC curve - Fold {fold_idx}, Subjects {test_subject_label}"
         )
 
         fold_roc_data.append({
             "fold": fold_idx,
-            "test_subject": test_subject,
+            "test_subject": test_subject_label,
+            "test_subjects": ",".join(map(str, test_subjects)),
             "y_true": y_test.copy(),
             "y_prob": y_prob.copy()
         })
@@ -224,76 +357,73 @@ def main():
         all_y_true_epoch.extend(y_test.tolist())
         all_y_pred_epoch.extend(y_pred.tolist())
 
-        test_subjects = subjects[test_mask]
-        test_conditions = conditions[test_mask]
+        test_epoch_subjects = subjects[test_mask]
+        test_epoch_conditions = conditions[test_mask]
 
-        majority_results = aggregate_majority_vote(
-            epoch_predictions=y_pred,
-            subjects=test_subjects,
-            conditions=test_conditions
-        )
+        #majority_results = aggregate_majority_vote(
+        #    epoch_predictions=y_pred,
+        #    subjects=test_epoch_subjects,
+        #    conditions=test_conditions
+        #)
 
-        majority_metrics = metrics_from_aggregated_results(majority_results)
+        #majority_metrics = metrics_from_aggregated_results(majority_results)
 
-        print("\nSubject-condition majority vote metrics:")
-        print_metric_summary(majority_metrics)
+        # print("\nSubject-condition majority vote metrics:")
+        # print_metric_summary(majority_metrics)
 
-        save_confusion_matrix_plot(
-            confusion_matrix=majority_metrics["confusion_matrix"],
-            output_path=plots_dir / "confusion_matrices" / f"majority_fold_{fold_idx}_subject_{test_subject}.png",
-            title=f"Majority vote confusion matrix - Fold {fold_idx}, Subject {test_subject}"
-        )
+        # save_confusion_matrix_plot(
+        #    confusion_matrix=majority_metrics["confusion_matrix"],
+        #    output_path=plots_dir / "confusion_matrices" / f"majority_fold_{fold_idx}_subject_{test_subject}.png",
+        #    title=f"Majority vote confusion matrix - Fold {fold_idx}, Subject {test_subject}"
+        #)
 
-        y_true_majority, y_pred_majority = results_to_y_arrays(majority_results)
-        all_y_true_majority.extend(y_true_majority.tolist())
-        all_y_pred_majority.extend(y_pred_majority.tolist())
+        #y_true_majority, y_pred_majority = results_to_y_arrays(majority_results)
+        #all_y_true_majority.extend(y_true_majority.tolist())
+        #all_y_pred_majority.extend(y_pred_majority.tolist())
 
-        probability_results = aggregate_mean_probability(
-            epoch_probabilities=y_prob,
-            subjects=test_subjects,
-            conditions=test_conditions
-        )
+        #probability_results = aggregate_mean_probability(
+        #    epoch_probabilities=y_prob,
+        #    subjects=test_epoch_subjects,
+        #   conditions=test_conditions
+        #)
 
-        probability_metrics = metrics_from_aggregated_results(probability_results)
+        #probability_metrics = metrics_from_aggregated_results(probability_results)
 
-        print("\nSubject-condition mean probability metrics:")
-        print_metric_summary(probability_metrics)
+        #print("\nSubject-condition mean probability metrics:")
+        #print_metric_summary(probability_metrics)
 
-        save_confusion_matrix_plot(
-            confusion_matrix=probability_metrics["confusion_matrix"],
-            output_path=plots_dir / "confusion_matrices" / f"probability_fold_{fold_idx}_subject_{test_subject}.png",
-            title=f"Mean probability confusion matrix - Fold {fold_idx}, Subject {test_subject}",
-        )
+        #save_confusion_matrix_plot(
+        #    confusion_matrix=probability_metrics["confusion_matrix"],
+        #    output_path=plots_dir / "confusion_matrices" / f"probability_fold_{fold_idx}_subject_{test_subject}.png",
+        #    title=f"Mean probability confusion matrix - Fold {fold_idx}, Subject {test_subject}",
+        #)
 
-        y_true_probability, y_pred_probability = results_to_y_arrays(probability_results)
-        all_y_true_probability.extend(y_true_probability.tolist())
-        all_y_pred_probability.extend(y_pred_probability.tolist())
+        #y_true_probability, y_pred_probability = results_to_y_arrays(probability_results)
+        #all_y_true_probability.extend(y_true_probability.tolist())
+        #all_y_pred_probability.extend(y_pred_probability.tolist())
 
         all_epoch_metrics.append(epoch_metrics)
-        all_majority_metrics.append(majority_metrics)
-        all_probability_metrics.append(probability_metrics)
+        #all_majority_metrics.append(majority_metrics)
+        #all_probability_metrics.append(probability_metrics)
 
         fold_rows.append({
             "fold": fold_idx,
-            "test_subject": test_subject,
-            "val_subject": val_subject,
+            "test_subject": test_subject_label,
+            "test_subjects": ",".join(map(str, test_subjects)),
+            "val_subjects": ",".join(map(str, val_subjects)),
+            "best_epoch": history["best_epoch"],
+            "best_train_acc": history["best_train_acc"],
+            "best_val_acc": history["best_val_acc"],
+            "best_val_loss": history["best_val_loss"],
             "epoch_accuracy": epoch_metrics["accuracy"],
             "epoch_precision": epoch_metrics["precision"],
             "epoch_recall": epoch_metrics["recall"],
             "epoch_f1": epoch_metrics["f1"],
-            "epoch_roc_auc": epoch_metrics.get("roc_auc", np.nan),
-            "majority_accuracy": majority_metrics["accuracy"],
-            "majority_precision": majority_metrics["precision"],
-            "majority_recall": majority_metrics["recall"],
-            "majority_f1": majority_metrics["f1"],
-            "probability_accuracy": probability_metrics["accuracy"],
-            "probability_precision": probability_metrics["precision"],
-            "probability_recall": probability_metrics["recall"],
-            "probability_f1": probability_metrics["f1"]
+            "epoch_roc_auc": epoch_metrics.get("roc_auc", np.nan)
         })
 
         if outputs_config.get("save_models", True):
-            model_path = models_dir / f"raw_eegnetlike_fold_{fold_idx}_subject_{test_subject}.pt"
+            model_path = models_dir / f"raw_eegnetlike_fold_{fold_idx}_subjects_{test_subject_label}.pt"
 
             save_model_checkpoint(
                 model_path=model_path,
@@ -302,57 +432,57 @@ def main():
                 model_config=model_config,
                 training_config=training_config,
                 fold_idx=fold_idx,
-                test_subject=test_subject,
-                val_subject=val_subject,
+                test_subject=test_subject_label,
+                val_subject=",".join(map(str, val_subjects)),
                 input_shape=(1, n_channels, n_timepoints),
                 history=history,
                 extra={
                     "n_channels": n_channels,
                     "n_timepoints": n_timepoints,
+                    "n_classes": 2,
+                    "test_subjects": ",".join(map(str, test_subjects)),
+                    "validation_method": validation_method
                 }
             )
 
     print("\n" + "=" * 80)
-    print("FINAL LOSO SUMMARY - RAW EEGNET-LIKE CNN")
+    print(f"FINAL {validation_method} SUMMARY - RAW EEGNET-LIKE CNN")
     print("=" * 80)
 
     summarize_metric_list("Epoch-level", all_epoch_metrics)
-    summarize_metric_list("Majority vote", all_majority_metrics)
-    summarize_metric_list("Mean probability", all_probability_metrics)
+    #summarize_metric_list("Majority vote", all_majority_metrics)
+    #summarize_metric_list("Mean probability", all_probability_metrics)
 
     if outputs_config.get("save_metrics", True):
         save_fold_metrics_csv(
-            results_path=results_dir / "raw_eegnetlike_loso_metrics.csv",
+            results_path=results_dir / f"raw_eegnetlike_{validation_method.lower()}_metrics.csv",
             fold_rows=fold_rows
         )
 
     plot_loso_performance_summary(
         train_accuracies=train_accuracies_for_summary,
         test_accuracies=test_accuracies_for_summary,
-        output_path=plots_dir / "summary" / "loso_performance_summary.png",
-        title="LOSO cross-validation: Raw EEGNet-like CNN",
+        output_path=plots_dir / "summary" / f"{validation_method.lower()}_performance_summary.png",
+        title=f"{validation_method} cross-validation: Raw EEGNet-like CNN",
         chance_level=0.5
     )
 
     save_loso_summary_report(
-        output_path=results_dir / "raw_eegnetlike_loso_summary.txt",
-        analysis_name="Raw EEGNet-like CNN: Before vs. After",
-        number_of_folds=len(loso_splits),
+        output_path=results_dir / f"raw_eegnetlike_{validation_method.lower()}_summary.txt",
+        analysis_name=f"Raw EEGNet-like CNN: {analysis_type}",
+        number_of_folds=len(splits),
         train_accuracies=train_accuracies_for_summary,
         test_accuracies=test_accuracies_for_summary,
         config=config,
-        data_augmentation=False
+        data_augmentation=False,
+        model_config=model_config
     )
 
     # Final pooled confusion matrices
-    save_final_confusion_matrices(
+    save_final_confusion_matrix(
         all_y_true_epoch=all_y_true_epoch,
         all_y_pred_epoch=all_y_pred_epoch,
-        all_y_true_majority=all_y_true_majority,
-        all_y_pred_majority=all_y_pred_majority,
-        all_y_true_probability=all_y_true_probability,
-        all_y_pred_probability=all_y_pred_probability,
-        output_dir=plots_dir / "final_confusion_matrices",
+        output_dir=plots_dir / "final_confusion_matrix",
     )
 
     # Fold-level metric plots
@@ -360,36 +490,36 @@ def main():
         fold_rows=fold_rows,
         metric_name="epoch_accuracy",
         output_path=plots_dir / "metrics_by_fold" / "epoch_accuracy_by_fold.png",
-        title="Epoch-level accuracy by LOSO fold",
+        title=f"Epoch-level accuracy by {validation_method} fold",
     )
 
     plot_metric_by_fold(
         fold_rows=fold_rows,
         metric_name="epoch_f1",
         output_path=plots_dir / "metrics_by_fold" / "epoch_f1_by_fold.png",
-        title="Epoch-level F1 by LOSO fold",
+        title=f"Epoch-level F1 by {validation_method} fold",
     )
 
     plot_metric_by_fold(
         fold_rows=fold_rows,
         metric_name="epoch_roc_auc",
         output_path=plots_dir / "metrics_by_fold" / "epoch_roc_auc_by_fold.png",
-        title="Epoch-level ROC-AUC by LOSO fold",
+        title=f"Epoch-level ROC-AUC by {validation_method} fold",
     )
 
-    plot_metric_by_fold(
-        fold_rows=fold_rows,
-        metric_name="majority_accuracy",
-        output_path=plots_dir / "metrics_by_fold" / "majority_accuracy_by_fold.png",
-        title="Subject-condition majority vote accuracy by LOSO fold",
-    )
+    #plot_metric_by_fold(
+    #    fold_rows=fold_rows,
+    #    metric_name="majority_accuracy",
+    #    output_path=plots_dir / "metrics_by_fold" / "majority_accuracy_by_fold.png",
+    #    title="Subject-condition majority vote accuracy by LOSO fold",
+    #)
 
-    plot_metric_by_fold(
-        fold_rows=fold_rows,
-        metric_name="probability_accuracy",
-        output_path=plots_dir / "metrics_by_fold" / "probability_accuracy_by_fold.png",
-        title="Subject-condition mean probability accuracy by LOSO fold",
-    )
+    #plot_metric_by_fold(
+    #    fold_rows=fold_rows,
+    #    metric_name="probability_accuracy",
+    #    output_path=plots_dir / "metrics_by_fold" / "probability_accuracy_by_fold.png",
+    #   title="Subject-condition mean probability accuracy by LOSO fold",
+    #)
 
     plot_epoch_metrics_summary(
         fold_rows=fold_rows,
@@ -400,6 +530,16 @@ def main():
         fold_roc_data=fold_roc_data,
         output_path=plots_dir / "roc_curves" / "roc_all_folds.png",
     )
+
+    run_end_time = time.perf_counter()
+    run_duration_seconds = run_end_time - run_start_time
+    run_duration_minutes = run_duration_seconds / 60
+
+    print(f"\nTotal runtime: {run_duration_minutes:.2f} minutes")
+
+    with open(results_dir / "runtime.txt", "w", encoding="utf-8") as f:
+        f.write(f"runtime_seconds: {run_duration_seconds:.2f}\n")
+        f.write(f"runtime_minutes: {run_duration_minutes:.2f}\n")
 
     print(f"\nPlots saved to: {plots_dir}")
 

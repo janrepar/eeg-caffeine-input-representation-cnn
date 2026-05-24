@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.model_selection import GroupKFold
 
 
 def create_loso_splits(subjects: np.ndarray):
@@ -38,11 +39,12 @@ def create_train_val_split_by_subject(
     subjects: np.ndarray,
     train_mask: np.ndarray,
     random_seed: int = 42,
+    n_validation_subjects=1
 ):
     """
     Creates validation split from training subjects only.
 
-    One subject from the training set is selected as a validation subject.
+    N subjects from the training set is selected as a validation subject.
     This avoids using the LOSO test subject for early stopping.
 
     Parameters
@@ -60,17 +62,67 @@ def create_train_val_split_by_subject(
 
     rng = np.random.default_rng(random_seed)
 
-    train_subjects = np.unique(subjects[train_mask])
+    available_train_subjects = np.unique(subjects[train_mask])
 
-    if len(train_subjects) < 2:
-        raise ValueError("Need at least two training subjects to create validation split.")
+    if len(available_train_subjects) <= n_validation_subjects:
+        raise ValueError(
+            f"Not enough training subjects for validation split. "
+            f"Available train subjects: {len(available_train_subjects)}, "
+            f"requested validation subjects: {n_validation_subjects}"
+        )
 
-    val_subject = rng.choice(train_subjects)
+    validation_subjects = rng.choice(
+        available_train_subjects,
+        size=n_validation_subjects,
+        replace=False,
+    )
 
-    final_train_mask = train_mask & (subjects != val_subject)
-    val_mask = train_mask & (subjects == val_subject)
+    val_mask = train_mask & np.isin(subjects, validation_subjects)
+    new_train_mask = train_mask & ~np.isin(subjects, validation_subjects)
 
-    return final_train_mask, val_mask, val_subject
+    return new_train_mask, val_mask, validation_subjects
+
+
+def create_groupkfold_splits(subjects, n_splits=5):
+    """
+    Creates subject-independent GroupKFold splits.
+
+    All epochs from the same subject are kept together.
+    Each subject appears in the test set exactly once across folds.
+    """
+
+    subjects = np.asarray(subjects)
+
+    dummy_X = np.zeros(len(subjects))
+    dummy_y = np.zeros(len(subjects))
+
+    group_kfold = GroupKFold(n_splits=n_splits)
+
+    splits = []
+
+    for fold_idx, (train_idx, test_idx) in enumerate(
+        group_kfold.split(dummy_X, dummy_y, groups=subjects),
+        start=1,
+    ):
+        train_mask = np.zeros(len(subjects), dtype=bool)
+        test_mask = np.zeros(len(subjects), dtype=bool)
+
+        train_mask[train_idx] = True
+        test_mask[test_idx] = True
+
+        test_subjects = np.unique(subjects[test_mask])
+
+        splits.append(
+            {
+                "fold": fold_idx,
+                "train_mask": train_mask,
+                "test_mask": test_mask,
+                "test_subject": ",".join(map(str, test_subjects)),
+                "test_subjects": test_subjects,
+            }
+        )
+
+    return splits
 
 
 def print_split_summary(subjects, y, train_mask, val_mask, test_mask):

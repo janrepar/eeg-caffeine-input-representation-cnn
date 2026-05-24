@@ -30,6 +30,54 @@ def predict_binary_model(model, X, device):
     return probs, preds
 
 
+@torch.no_grad()
+def predict_multiclass_model(model, X, device):
+    """
+    Predicts probabilities and labels for a model returning logits.
+
+    Model output: logits shape: (batch_size, 2)
+
+    Returns: y_prob: probability of class 1 / After y_pred: predicted class 0 or 1
+    """
+
+    model.eval()
+
+    X = X.to(device)
+    logits = model(X)
+
+    probabilities = torch.softmax(logits, dim=1).cpu().numpy()
+
+    y_prob = probabilities[:, 1]
+    y_pred = np.argmax(probabilities, axis=1)
+
+    return y_prob, y_pred
+
+
+@torch.no_grad()
+def predict_hybrid_multiclass_model(model, X_raw, X_feat, device):
+    """
+    Predicts probabilities and labels for hybrid model.
+
+    Model output: logits: (batch_size, 2)
+    Returns:
+        y_prob: probability of class 1 / After
+        y_pred: predicted class 0 or 1
+    """
+
+    model.eval()
+
+    X_raw = X_raw.to(device)
+    X_feat = X_feat.to(device)
+
+    logits = model(X_raw, X_feat)
+    probabilities = torch.softmax(logits, dim=1).cpu().numpy()
+
+    y_prob = probabilities[:, 1]
+    y_pred = np.argmax(probabilities, axis=1)
+
+    return y_prob, y_pred
+
+
 def compute_binary_metrics(y_true, y_pred, y_prob=None):
     """
     Computes binary classification metrics.

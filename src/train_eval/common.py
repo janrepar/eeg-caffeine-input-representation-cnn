@@ -3,7 +3,6 @@ from pathlib import Path
 from datetime import datetime
 
 import numpy as np
-import torch
 import shutil
 
 
@@ -15,12 +14,13 @@ def load_dataset_npz(path):
 
     data = np.load(path, allow_pickle=True)
 
-    return (
-        data["X"],
-        data["y"],
-        data["subjects"],
-        data["conditions"],
-    )
+    X = data["X"]
+    y = data["y"]
+    subjects = data["subjects"]
+    conditions = data["conditions"]
+    groups = data["groups"] if "groups" in data.files else None
+
+    return X, y, subjects, conditions, groups
 
 
 def get_device(config):
@@ -70,15 +70,18 @@ def create_experiment_output_dirs(config, model_name: str):
     Creates unique output directories for one experiment run.
 
     Example:
-        outputs/models/raw_eegnetlike_2026-05-16_1432
-        outputs/results/raw_eegnetlike_2026-05-16_1432
-        outputs/plots/raw_eegnetlike_2026-05-16_1432
+        outputs/models/raw_eegnetlike_loso_valsubj1_folds11_2026-05-16_1432
+        outputs/results/raw_eegnetlike_loso_valsubj1_folds11_2026-05-16_1432
+        outputs/plots/raw_eegnetlike_valsubj1_folds11_loso_2026-05-16_1432
     """
 
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    experiment_name = f"{model_name}_{timestamp}"
-
     outputs_config = config["outputs"]
+    validation_config = config["validation"]
+    val_method = validation_config.get("method", "LOSO").lower()
+    subj_string = f"nvalsubj{validation_config.get('n_validation_subjects', 1)}"
+
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    experiment_name = f"{model_name}_{val_method}_{subj_string}_{timestamp}"
 
     models_dir = Path(outputs_config["models_dir"]) / experiment_name
     results_dir = Path(outputs_config["results_dir"]) / experiment_name
@@ -155,20 +158,17 @@ def save_fold_metrics_csv(results_path, fold_rows):
     fieldnames = [
         "fold",
         "test_subject",
-        "val_subject",
+        "test_subjects",
+        "val_subjects",
+        "best_epoch",
+        "best_train_acc",
+        "best_val_acc",
+        "best_val_loss",
         "epoch_accuracy",
         "epoch_precision",
         "epoch_recall",
         "epoch_f1",
         "epoch_roc_auc",
-        "majority_accuracy",
-        "majority_precision",
-        "majority_recall",
-        "majority_f1",
-        "probability_accuracy",
-        "probability_precision",
-        "probability_recall",
-        "probability_f1"
     ]
 
     with open(results_path, "w", newline="", encoding="utf-8") as file:
@@ -207,7 +207,39 @@ def standardize_features_train_val_test(X_train, X_val, X_test):
     )
 
 
-def save_loso_summary_report(output_path, analysis_name, number_of_folds, train_accuracies, test_accuracies, config, data_augmentation=False):
+def standardize_raw_train_val_test(X_train, X_val, X_test):
+    """
+    Per-channel Z-score standardization for raw EEG data.
+
+    Works for raw EEG datasets: (n_epochs, n_channels, n_timepoints)
+
+    Mean and standard deviation are computed using training data only.
+    This avoids leakage from validation/test into training.
+
+    For each EEG channel, the mean/std are computed across:
+        - all training epochs
+        - all timepoints
+
+    Output shape remains unchanged: (n_epochs, n_channels, n_timepoints)
+    """
+
+    mean = X_train.mean(axis=(0, 2), keepdims=True)
+    std = X_train.std(axis=(0, 2), keepdims=True)
+
+    std = np.where(std == 0, 1.0, std)
+
+    X_train_std = (X_train - mean) / std
+    X_val_std = (X_val - mean) / std
+    X_test_std = (X_test - mean) / std
+
+    return (
+        X_train_std.astype(np.float32),
+        X_val_std.astype(np.float32),
+        X_test_std.astype(np.float32),
+    )
+
+
+def save_loso_summary_report(output_path, analysis_name, number_of_folds, train_accuracies, test_accuracies, config, data_augmentation=False, model_config=None):
     """
     Saves LOSO summary report as .txt.
     """
@@ -228,7 +260,6 @@ def save_loso_summary_report(output_path, analysis_name, number_of_folds, train_
 
     training_config = config["training"]
     validation_config = config["validation"]
-    model_config = config["model"]["raw_model"]
 
     with open(output_path, "w", encoding="utf-8") as file:
         file.write("LOSO Cross-Validation Summary\n")
@@ -237,6 +268,7 @@ def save_loso_summary_report(output_path, analysis_name, number_of_folds, train_
         file.write(f"Analysis: {analysis_name}\n")
         file.write(f"Number of folds: {number_of_folds}\n")
         file.write(f"Validation method: {validation_config.get('method', 'LOSO')}\n")
+        file.write(f"Validation subjects per fold: {validation_config.get('n_validation_subjects', 1)}\n")
         file.write(f"Data Augmentation: {'ENABLED' if data_augmentation else 'DISABLED'}\n\n")
 
         file.write("Performance:\n")
@@ -250,6 +282,14 @@ def save_loso_summary_report(output_path, analysis_name, number_of_folds, train_
         file.write(f"Learning rate: {training_config['learning_rate']}\n")
         file.write(f"Weight decay: {training_config['weight_decay']}\n")
         file.write(f"Patience: {training_config['patience']}\n\n")
+        file.write(f"Early stopping metric: {training_config.get('early_stopping_metric', 'val_loss')}\n")
+
+        if model_config is None:
+            file.write("Model configuration was not provided.\n")
+        else:
+            for key, value in model_config.items():
+                readable_key = key.replace("_", " ").capitalize()
+                file.write(f"{readable_key}: {value}\n")
 
         file.write("Model Parameters:\n")
         file.write(f"Model: {model_config.get('name', 'EEGNetLike')}\n")

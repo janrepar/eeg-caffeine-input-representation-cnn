@@ -277,34 +277,20 @@ def plot_all_folds_roc_curve(fold_roc_data: list[dict], output_path):
     plt.close()
 
 
-def save_final_confusion_matrices(all_y_true_epoch, all_y_pred_epoch, all_y_true_majority, all_y_pred_majority, all_y_true_probability, all_y_pred_probability, output_dir):
+def save_final_confusion_matrix(all_y_true_epoch, all_y_pred_epoch, output_dir):
     """
-    Saves final confusion matrices pooled across all folds.
+    Saves final confusion matriX pooled across all folds.
     """
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     cm_epoch = confusion_matrix(all_y_true_epoch, all_y_pred_epoch, labels=[0, 1])
-    cm_majority = confusion_matrix(all_y_true_majority, all_y_pred_majority, labels=[0, 1])
-    cm_probability = confusion_matrix(all_y_true_probability, all_y_pred_probability, labels=[0, 1])
 
     save_confusion_matrix_plot(
         cm_epoch,
         output_dir / "final_confusion_matrix_epoch_level.png",
         "Final epoch-level confusion matrix"
-    )
-
-    save_confusion_matrix_plot(
-        cm_majority,
-        output_dir / "final_confusion_matrix_majority_vote.png",
-        "Final subject-condition majority vote confusion matrix"
-    )
-
-    save_confusion_matrix_plot(
-        cm_probability,
-        output_dir / "final_confusion_matrix_mean_probability.png",
-        "Final subject-condition mean probability confusion matrix"
     )
 
 

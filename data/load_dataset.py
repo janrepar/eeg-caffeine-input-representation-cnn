@@ -8,5 +8,6 @@ def load_dataset_npz(path):
     y = data["y"]
     subjects = data["subjects"]
     conditions = data["conditions"]
+    groups = data["groups"] if "groups" in data.files else None
 
-    return X, y, subjects, conditions
+    return X, y, subjects, conditions, groups

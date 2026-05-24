@@ -1,0 +1,35 @@
+LOSO Cross-Validation Summary
+=============================
+
+Analysis: Raw EEGNet-like CNN: caffeine_before_vs_after
+Number of folds: 11
+Validation method: LOSO
+Validation subjects per fold: 1
+Data Augmentation: DISABLED
+
+Performance:
+Training Accuracy: 67.17% ± 6.29%
+Testing Accuracy: 55.25% ± 6.59%
+Train-Test Gap: 11.92%
+
+Training Parameters:
+Epochs: 100
+Batch size: 32
+Learning rate: 0.001
+Weight decay: 0.0001
+Patience: 30
+
+Early stopping metric: val_loss
+Name: EEGNetLike
+Dropout: 0.4
+Temporal filters: 16
+Depth multiplier: 4
+Temporal kernel size: 300
+Separable kernel size: 16
+Model Parameters:
+Model: EEGNetLike
+Dropout: 0.4
+Temporal filters: 16
+Depth multiplier: 4
+Temporal kernel size: 300
+Separable kernel size: 16

@@ -3,43 +3,26 @@ import numpy as np
 from src.utils.helpers import get_scalar, condition_to_label
 
 
-def build_raw_dataset_from_alleeg(
-    ALLEEG,
-    include_subjects=None,
-    exclude_subjects=None,
-    include_conditions=None,
-):
+def build_raw_dataset_from_alleeg( ALLEEG, include_subjects=None, exclude_subjects=None, include_conditions=None, include_groups=None):
     """
     Builds epoch-level raw EEG dataset from ALLEEG.
 
     Parameters
     ----------
-    ALLEEG:
-        EEGLAB ALLEEG structure loaded from .mat file.
-
-    include_subjects:
-        Optional list of subjects to include.
-
-    exclude_subjects:
-        Optional list of subjects to exclude.
-
-    include_conditions:
-        Optional list of conditions to include, e.g. ["Before", "After"].
+    ALLEEG: EEGLAB ALLEEG structure loaded from .mat file.
+    include_subjects: Optional list of subjects to include.
+    exclude_subjects: Optional list of subjects to exclude.
+    include_conditions: Optional list of conditions to include, e.g. ["Before", "After"].
 
     Returns
     -------
-    X_raw:
-        Shape: (n_total_epochs, n_channels, n_timepoints)
-
+    X_raw: Shape: (n_total_epochs, n_channels, n_timepoints)
     y:
-        Shape: (n_total_epochs,)
+        Shape: (n_total_epochs)
         Before = 0, After = 1
-
-    subjects:
-        Shape: (n_total_epochs,)
-
-    conditions:
-        Shape: (n_total_epochs,)
+    subjects: Shape: (n_total_epochs)
+    conditions: Shape: (n_total_epochs)
+    groups: (n_epochs)
     """
 
     if include_subjects is not None:
@@ -53,16 +36,21 @@ def build_raw_dataset_from_alleeg(
     if include_conditions is not None:
         include_conditions = set(c.lower() for c in include_conditions)
 
+    if include_groups is not None:
+        include_groups = set(g.lower() for g in include_groups)
+
     X_list = []
     y_list = []
     subject_list = []
     condition_list = []
+    group_list = []
 
     for i in range(ALLEEG.size):
         eeg = ALLEEG[0, i]
 
         subject = str(get_scalar(eeg["subject"]))
         condition = str(get_scalar(eeg["condition"]))
+        group = str(get_scalar(eeg["group"]))
 
         if include_subjects is not None and subject not in include_subjects:
             continue
@@ -71,6 +59,9 @@ def build_raw_dataset_from_alleeg(
             continue
 
         if include_conditions is not None and condition.lower() not in include_conditions:
+            continue
+
+        if include_groups is not None and group.lower() not in include_groups:
             continue
 
         data = eeg["data"]
@@ -94,9 +85,10 @@ def build_raw_dataset_from_alleeg(
         y_list.extend([label] * n_epochs)
         subject_list.extend([subject] * n_epochs)
         condition_list.extend([condition] * n_epochs)
+        group_list.extend([group] * n_epochs)
 
         print(
-            f"{i + 1}. Subject={subject}, Condition={condition}, "
+            f"{i + 1}. Subject={subject}, Group={group}, Condition={condition}, "
             f"Input={data.shape}, Output={data_epochs.shape}"
         )
 
@@ -107,5 +99,6 @@ def build_raw_dataset_from_alleeg(
     y = np.array(y_list, dtype=np.int64)
     subjects = np.array(subject_list)
     conditions = np.array(condition_list)
+    groups = np.array(group_list)
 
-    return X_raw, y, subjects, conditions
+    return X_raw, y, subjects, conditions, groups
