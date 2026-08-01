@@ -1,0 +1,479 @@
+MODEL COMPARISON - USED CONFIGS
+====================================================================================================
+
+====================================================================================================
+MODEL: Raw EEGNet-like CNN
+RESULT DIR: C:\Users\janre\PycharmProjects\eeg-caffeine-input-representation-cnn\outputs\experiments\2026-08-01_185139_GROUPKFOLD_nvalsubj2\results\raw_eegnetlike
+====================================================================================================
+
+project:
+  name: eeg-caffeine-input-representation-cnn
+  version: 1.0.1
+  random_seed: 42
+experiment:
+  analysis_type: caffeine_before_vs_after
+  run_model_analysis: true
+data:
+  data_path: data/raw/Caffeine_data_20250311.mat
+  sampling_rate: 600
+  include_conditions:
+  - Before
+  - After
+  exclude_subjects: []
+  raw_dataset_output: data/processed/raw_dataset.npz
+  feature_dataset_output: data/processed/feature_dataset.npz
+features:
+  use_time: true
+  use_frequency: true
+  use_entropy: true
+  frequency_bands:
+    theta:
+    - 4
+    - 8
+    alpha:
+    - 8
+    - 13
+    beta:
+    - 13
+    - 30
+    gamma:
+    - 30
+    - 45
+  welch_nperseg: 900
+validation:
+  method: GROUPKFOLD
+  use_validation_subject: true
+  validation_seed: 42
+  n_validation_subjects: 2
+  n_splits: 5
+hyperparameter_optimization:
+  inner_splits: 3
+  trials: 15
+  epochs: 100
+  patience: 30
+  stability_penalty: 0.1
+training:
+  epochs: 500
+  batch_size: 32
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  patience: 75
+  validation_frequency: 30
+  device: auto
+  early_stopping_metric: val_loss
+  label_smoothing: 0.0
+model:
+  raw_model:
+    name: EEGNetLike
+    dropout: 0.3
+    temporal_filters: 16
+    depth_multiplier: 4
+    temporal_kernel_size: 300
+    separable_kernel_size: 16
+  features_1d_model:
+    name: CNNFeatures1D
+    dropout: 0.5
+    conv1_filters: 16
+    conv2_filters: 16
+    hidden_units: 32
+    kernel_size_1: 3
+    kernel_size_2: 3
+  features_2d_model:
+    name: CNNFeatures2D
+    dropout: 0.5
+    conv1_filters: 16
+    conv2_filters: 16
+    hidden_units: 32
+    kernel_size_1:
+    - 3
+    - 3
+    kernel_size_2:
+    - 3
+    - 3
+    pool_size_1:
+    - 2
+    - 1
+    pool_size_2:
+    - 2
+    - 1
+  hybrid_model:
+    name: HybridEEGFeatureCNN
+    dropout: 0.5
+    raw_temporal_filters: 8
+    raw_kernel_size: 300
+    raw_pool_size: 16
+    feature_conv1_filters: 16
+    feature_conv2_filters: 16
+    feature_kernel_size_1: 3
+    feature_kernel_size_2: 3
+    raw_embedding_units: 16
+    feature_embedding_units: 16
+    fusion_hidden_units: 16
+outputs:
+  output_dir: outputs
+  experiments_dir: outputs/experiments
+  models_dir: outputs/models
+  results_dir: outputs/results
+  plots_dir: outputs/plots
+  save_models: true
+  save_predictions: true
+  save_metrics: true
+
+
+====================================================================================================
+MODEL: Features1D CNN
+RESULT DIR: C:\Users\janre\PycharmProjects\eeg-caffeine-input-representation-cnn\outputs\experiments\2026-08-01_185139_GROUPKFOLD_nvalsubj2\results\features1d_cnn
+====================================================================================================
+
+project:
+  name: eeg-caffeine-input-representation-cnn
+  version: 1.0.1
+  random_seed: 42
+experiment:
+  analysis_type: caffeine_before_vs_after
+  run_model_analysis: true
+data:
+  data_path: data/raw/Caffeine_data_20250311.mat
+  sampling_rate: 600
+  include_conditions:
+  - Before
+  - After
+  exclude_subjects: []
+  raw_dataset_output: data/processed/raw_dataset.npz
+  feature_dataset_output: data/processed/feature_dataset.npz
+features:
+  use_time: true
+  use_frequency: true
+  use_entropy: true
+  frequency_bands:
+    theta:
+    - 4
+    - 8
+    alpha:
+    - 8
+    - 13
+    beta:
+    - 13
+    - 30
+    gamma:
+    - 30
+    - 45
+  welch_nperseg: 900
+validation:
+  method: GROUPKFOLD
+  use_validation_subject: true
+  validation_seed: 42
+  n_validation_subjects: 2
+  n_splits: 5
+hyperparameter_optimization:
+  inner_splits: 3
+  trials: 15
+  epochs: 100
+  patience: 30
+  stability_penalty: 0.1
+training:
+  epochs: 500
+  batch_size: 32
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  patience: 75
+  validation_frequency: 30
+  device: auto
+  early_stopping_metric: val_loss
+  label_smoothing: 0.0
+model:
+  raw_model:
+    name: EEGNetLike
+    dropout: 0.3
+    temporal_filters: 16
+    depth_multiplier: 4
+    temporal_kernel_size: 300
+    separable_kernel_size: 16
+  features_1d_model:
+    name: CNNFeatures1D
+    dropout: 0.5
+    conv1_filters: 16
+    conv2_filters: 16
+    hidden_units: 32
+    kernel_size_1: 3
+    kernel_size_2: 3
+  features_2d_model:
+    name: CNNFeatures2D
+    dropout: 0.5
+    conv1_filters: 16
+    conv2_filters: 16
+    hidden_units: 32
+    kernel_size_1:
+    - 3
+    - 3
+    kernel_size_2:
+    - 3
+    - 3
+    pool_size_1:
+    - 2
+    - 1
+    pool_size_2:
+    - 2
+    - 1
+  hybrid_model:
+    name: HybridEEGFeatureCNN
+    dropout: 0.5
+    raw_temporal_filters: 8
+    raw_kernel_size: 300
+    raw_pool_size: 16
+    feature_conv1_filters: 16
+    feature_conv2_filters: 16
+    feature_kernel_size_1: 3
+    feature_kernel_size_2: 3
+    raw_embedding_units: 16
+    feature_embedding_units: 16
+    fusion_hidden_units: 16
+outputs:
+  output_dir: outputs
+  experiments_dir: outputs/experiments
+  models_dir: outputs/models
+  results_dir: outputs/results
+  plots_dir: outputs/plots
+  save_models: true
+  save_predictions: true
+  save_metrics: true
+
+
+====================================================================================================
+MODEL: Features2D CNN
+RESULT DIR: C:\Users\janre\PycharmProjects\eeg-caffeine-input-representation-cnn\outputs\experiments\2026-08-01_185139_GROUPKFOLD_nvalsubj2\results\features2d_cnn
+====================================================================================================
+
+project:
+  name: eeg-caffeine-input-representation-cnn
+  version: 1.0.1
+  random_seed: 42
+experiment:
+  analysis_type: caffeine_before_vs_after
+  run_model_analysis: true
+data:
+  data_path: data/raw/Caffeine_data_20250311.mat
+  sampling_rate: 600
+  include_conditions:
+  - Before
+  - After
+  exclude_subjects: []
+  raw_dataset_output: data/processed/raw_dataset.npz
+  feature_dataset_output: data/processed/feature_dataset.npz
+features:
+  use_time: true
+  use_frequency: true
+  use_entropy: true
+  frequency_bands:
+    theta:
+    - 4
+    - 8
+    alpha:
+    - 8
+    - 13
+    beta:
+    - 13
+    - 30
+    gamma:
+    - 30
+    - 45
+  welch_nperseg: 900
+validation:
+  method: GROUPKFOLD
+  use_validation_subject: true
+  validation_seed: 42
+  n_validation_subjects: 2
+  n_splits: 5
+hyperparameter_optimization:
+  inner_splits: 3
+  trials: 15
+  epochs: 100
+  patience: 30
+  stability_penalty: 0.1
+training:
+  epochs: 500
+  batch_size: 32
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  patience: 75
+  validation_frequency: 30
+  device: auto
+  early_stopping_metric: val_loss
+  label_smoothing: 0.0
+model:
+  raw_model:
+    name: EEGNetLike
+    dropout: 0.3
+    temporal_filters: 16
+    depth_multiplier: 4
+    temporal_kernel_size: 300
+    separable_kernel_size: 16
+  features_1d_model:
+    name: CNNFeatures1D
+    dropout: 0.5
+    conv1_filters: 16
+    conv2_filters: 16
+    hidden_units: 32
+    kernel_size_1: 3
+    kernel_size_2: 3
+  features_2d_model:
+    name: CNNFeatures2D
+    dropout: 0.5
+    conv1_filters: 16
+    conv2_filters: 16
+    hidden_units: 32
+    kernel_size_1:
+    - 3
+    - 3
+    kernel_size_2:
+    - 3
+    - 3
+    pool_size_1:
+    - 2
+    - 1
+    pool_size_2:
+    - 2
+    - 1
+  hybrid_model:
+    name: HybridEEGFeatureCNN
+    dropout: 0.5
+    raw_temporal_filters: 8
+    raw_kernel_size: 300
+    raw_pool_size: 16
+    feature_conv1_filters: 16
+    feature_conv2_filters: 16
+    feature_kernel_size_1: 3
+    feature_kernel_size_2: 3
+    raw_embedding_units: 16
+    feature_embedding_units: 16
+    fusion_hidden_units: 16
+outputs:
+  output_dir: outputs
+  experiments_dir: outputs/experiments
+  models_dir: outputs/models
+  results_dir: outputs/results
+  plots_dir: outputs/plots
+  save_models: true
+  save_predictions: true
+  save_metrics: true
+
+
+====================================================================================================
+MODEL: Hybrid Raw + Features CNN
+RESULT DIR: C:\Users\janre\PycharmProjects\eeg-caffeine-input-representation-cnn\outputs\experiments\2026-08-01_185139_GROUPKFOLD_nvalsubj2\results\hybrid_cnn
+====================================================================================================
+
+project:
+  name: eeg-caffeine-input-representation-cnn
+  version: 1.0.1
+  random_seed: 42
+experiment:
+  analysis_type: caffeine_before_vs_after
+  run_model_analysis: true
+data:
+  data_path: data/raw/Caffeine_data_20250311.mat
+  sampling_rate: 600
+  include_conditions:
+  - Before
+  - After
+  exclude_subjects: []
+  raw_dataset_output: data/processed/raw_dataset.npz
+  feature_dataset_output: data/processed/feature_dataset.npz
+features:
+  use_time: true
+  use_frequency: true
+  use_entropy: true
+  frequency_bands:
+    theta:
+    - 4
+    - 8
+    alpha:
+    - 8
+    - 13
+    beta:
+    - 13
+    - 30
+    gamma:
+    - 30
+    - 45
+  welch_nperseg: 900
+validation:
+  method: GROUPKFOLD
+  use_validation_subject: true
+  validation_seed: 42
+  n_validation_subjects: 2
+  n_splits: 5
+hyperparameter_optimization:
+  inner_splits: 3
+  trials: 15
+  epochs: 100
+  patience: 30
+  stability_penalty: 0.1
+training:
+  epochs: 500
+  batch_size: 32
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  patience: 75
+  validation_frequency: 30
+  device: auto
+  early_stopping_metric: val_loss
+  label_smoothing: 0.0
+model:
+  raw_model:
+    name: EEGNetLike
+    dropout: 0.3
+    temporal_filters: 16
+    depth_multiplier: 4
+    temporal_kernel_size: 300
+    separable_kernel_size: 16
+  features_1d_model:
+    name: CNNFeatures1D
+    dropout: 0.5
+    conv1_filters: 16
+    conv2_filters: 16
+    hidden_units: 32
+    kernel_size_1: 3
+    kernel_size_2: 3
+  features_2d_model:
+    name: CNNFeatures2D
+    dropout: 0.5
+    conv1_filters: 16
+    conv2_filters: 16
+    hidden_units: 32
+    kernel_size_1:
+    - 3
+    - 3
+    kernel_size_2:
+    - 3
+    - 3
+    pool_size_1:
+    - 2
+    - 1
+    pool_size_2:
+    - 2
+    - 1
+  hybrid_model:
+    name: HybridEEGFeatureCNN
+    dropout: 0.5
+    raw_temporal_filters: 8
+    raw_kernel_size: 300
+    raw_pool_size: 16
+    feature_conv1_filters: 16
+    feature_conv2_filters: 16
+    feature_kernel_size_1: 3
+    feature_kernel_size_2: 3
+    raw_embedding_units: 16
+    feature_embedding_units: 16
+    fusion_hidden_units: 16
+outputs:
+  output_dir: outputs
+  experiments_dir: outputs/experiments
+  models_dir: outputs/models
+  results_dir: outputs/results
+  plots_dir: outputs/plots
+  save_models: true
+  save_predictions: true
+  save_metrics: true
+
+

@@ -6,3 +6,4 @@ pyyaml
 torch
 scikit-learn
 pandas
+optuna>=4.0,<5.0

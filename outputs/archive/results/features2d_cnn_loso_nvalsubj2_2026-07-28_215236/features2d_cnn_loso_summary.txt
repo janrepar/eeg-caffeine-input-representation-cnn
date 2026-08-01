@@ -1,0 +1,39 @@
+LOSO Cross-Validation Summary
+=============================
+
+Analysis: Features2D CNN: caffeine_before_vs_after
+Number of folds: 11
+Validation method: LOSO
+Validation subjects per fold: 2
+Data Augmentation: DISABLED
+
+Performance:
+Training Accuracy: 67.92% ± 14.30%
+Testing Accuracy: 55.34% ± 20.89%
+Train-Test Gap: 12.58%
+
+Training Parameters:
+Epochs: 200
+Batch size: 32
+Learning rate: 2.124767943668112e-05
+Weight decay: 3.417356275260623e-05
+Patience: 30
+
+Early stopping metric: val_loss
+Name: CNNFeatures2D
+Dropout: 0.4568545469338783
+Conv1 filters: 8
+Conv2 filters: 32
+Hidden units: 16
+Kernel size 1: [3, 3]
+Kernel size 2: [3, 3]
+Pool size 1: [2, 1]
+Pool size 2: [2, 1]
+Label smoothing: 0.015685554342251863
+Model Parameters:
+Model: CNNFeatures2D
+Dropout: 0.4568545469338783
+Temporal filters: None
+Depth multiplier: None
+Temporal kernel size: None
+Separable kernel size: None

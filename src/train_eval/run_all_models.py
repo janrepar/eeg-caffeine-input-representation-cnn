@@ -1,156 +1,99 @@
+import csv
+import os
 import subprocess
 import sys
 import time
-import csv
 from pathlib import Path
 from datetime import datetime
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.append(str(PROJECT_ROOT))
 
-def run_command(command, model_name):
-    """
-    Runs one model script and measures execution time.
-    """
+from src.train_eval.common import EXPERIMENT_DIR_ENV, create_experiment_root
+from src.utils.helpers import load_config
 
+
+def run_command(command, stage_name, environment):
+    """Run one stage and measure its execution time."""
     print("\n" + "=" * 100)
-    print(f"Running model: {model_name}")
+    print(f"Running: {stage_name}")
     print(f"Command: {' '.join(command)}")
     print("=" * 100)
 
     start_time = time.perf_counter()
     start_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    result = subprocess.run(
-        command,
-        stdout=sys.stdout,
-        stderr=sys.stderr,
-        text=True,
-    )
-
+    result = subprocess.run(command, stdout=sys.stdout, stderr=sys.stderr, text=True, env=environment)
     end_time = time.perf_counter()
     end_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     duration_seconds = end_time - start_time
-    duration_minutes = duration_seconds / 60
-
     status = "SUCCESS" if result.returncode == 0 else "FAILED"
-
-    print("\n" + "-" * 100)
-    print(f"Finished model: {model_name}")
-    print(f"Status: {status}")
-    print(f"Duration: {duration_minutes:.2f} minutes")
-    print("-" * 100)
+    print(f"Finished: {stage_name} | {status} | {duration_seconds / 60:.2f} minutes")
 
     return {
-        "model_name": model_name,
+        "stage": stage_name,
         "command": " ".join(command),
         "status": status,
         "return_code": result.returncode,
         "start_datetime": start_datetime,
         "end_datetime": end_datetime,
         "duration_seconds": duration_seconds,
-        "duration_minutes": duration_minutes,
+        "duration_minutes": duration_seconds / 60,
     }
 
 
 def main():
-    """
-    Runs all experiment scripts one after another.
+    """Run all models and their shared post-processing in one experiment folder."""
+    config = load_config("config.yaml")
+    experiment_dir = create_experiment_root(config).resolve()
+    environment = os.environ.copy()
+    environment[EXPERIMENT_DIR_ENV] = str(experiment_dir)
 
-    Before running this, set in config.yaml:
-
-    experiment: analysis_type: caffeine_before_vs_after
-    """
-
-    output_dir = Path("outputs/experiment_timings")
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    timing_csv_path = output_dir / f"model_runtime_summary_{timestamp}.csv"
-
-    python_executable = sys.executable
-
-    experiments = [
-        {
-            "model_name": "Raw EEGNet-like CNN",
-            "script": "src/train_eval/run_cnn_eegnetlike.py",
-        },
-        {
-            "model_name": "Features1D CNN",
-            "script": "src/train_eval/run_cnn_features1d.py",
-        },
-        {
-            "model_name": "Features2D CNN",
-            "script": "src/train_eval/run_cnn_features2d.py",
-        },
-        {
-            "model_name": "Hybrid Raw + Features CNN",
-            "script": "src/train_eval/run_cnn_hybrid.py",
-        },
+    print(f"Experiment directory: {experiment_dir}")
+    python = sys.executable
+    stages = [
+        ("Raw EEGNet-like CNN", "src/train_eval/run_cnn_eegnetlike.py"),
+        ("Features1D CNN", "src/train_eval/run_cnn_features1d.py"),
+        ("Features2D CNN", "src/train_eval/run_cnn_features2d.py"),
+        ("Hybrid Raw + Features CNN", "src/train_eval/run_cnn_hybrid.py"),
     ]
+    rows = []
+    started = time.perf_counter()
 
-    results = []
-
-    total_start_time = time.perf_counter()
-
-    for experiment in experiments:
-        model_name = experiment["model_name"]
-        script = experiment["script"]
-
-        script_path = Path(script)
-
-        if not script_path.exists():
-            print(f"\nSkipping {model_name}. Script not found: {script}")
-            results.append(
-                {
-                    "model_name": model_name,
-                    "command": f"{python_executable} {script}",
-                    "status": "SKIPPED_SCRIPT_NOT_FOUND",
-                    "return_code": None,
-                    "start_datetime": None,
-                    "end_datetime": None,
-                    "duration_seconds": None,
-                    "duration_minutes": None,
-                }
-            )
-            continue
-
-        command = [python_executable, script]
-
-        result_row = run_command(command, model_name)
-        results.append(result_row)
-
-        if result_row["status"] == "FAILED":
-            print(f"\nModel failed: {model_name}")
-            print("Stopping execution to avoid wasting time.")
+    for stage_name, script in stages:
+        if not Path(script).is_file():
+            rows.append({"stage": stage_name, "command": f"{python} {script}", "status": "SKIPPED_SCRIPT_NOT_FOUND",
+                         "return_code": None, "start_datetime": None, "end_datetime": None,
+                         "duration_seconds": None, "duration_minutes": None})
             break
+        row = run_command([python, script], stage_name, environment)
+        rows.append(row)
+        if row["status"] != "SUCCESS":
+            print("Stopping because a model stage failed.")
+            break
+    else:
+        for stage_name, script in [
+            ("Model comparison analysis", "src/train_eval/analyze_model_results.py"),
+            ("Statistical tests", "src/train_eval/run_statistical_tests.py"),
+        ]:
+            row = run_command([python, script], stage_name, environment)
+            rows.append(row)
+            if row["status"] != "SUCCESS":
+                break
 
-    total_end_time = time.perf_counter()
-    total_duration_seconds = total_end_time - total_start_time
-    total_duration_minutes = total_duration_seconds / 60
-
-    with open(timing_csv_path, mode="w", newline="", encoding="utf-8") as f:
-        fieldnames = [
-            "model_name",
-            "command",
-            "status",
-            "return_code",
-            "start_datetime",
-            "end_datetime",
-            "duration_seconds",
-            "duration_minutes",
-        ]
-
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+    timing_csv_path = experiment_dir / "experiment_timings" / "model_runtime_summary.csv"
+    with open(timing_csv_path, "w", newline="", encoding="utf-8") as output:
+        writer = csv.DictWriter(output, fieldnames=["stage", "command", "status", "return_code", "start_datetime",
+                                                     "end_datetime", "duration_seconds", "duration_minutes"])
         writer.writeheader()
-
-        for row in results:
-            writer.writerow(row)
+        writer.writerows(rows)
 
     print("\n" + "=" * 100)
-    print("ALL EXPERIMENTS FINISHED")
+    print("EXPERIMENT FINISHED")
     print("=" * 100)
-    print(f"Total duration: {total_duration_minutes:.2f} minutes")
-    print(f"Timing CSV saved to: {timing_csv_path}")
+    print(f"Total duration: {(time.perf_counter() - started) / 60:.2f} minutes")
+    print(f"Timing summary: {timing_csv_path}")
+    print(f"All outputs: {experiment_dir}")
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
 
-def train_multiclass_model(model: nn.Module,
+def train_model(model: nn.Module,
     X_train: torch.Tensor,
     y_train: torch.Tensor,
     X_val: torch.Tensor,
@@ -134,6 +134,7 @@ def train_multiclass_model(model: nn.Module,
                 history["iter_val_iter"].append(iteration)
                 history["iter_val_loss"].append(val_loss_iter)
                 history["iter_val_acc"].append(val_acc_iter)
+                model.train()
 
         train_loss = train_loss_sum / total_train
         train_acc = correct_train / total_train
@@ -193,7 +194,7 @@ def train_multiclass_model(model: nn.Module,
     return model, history
 
 
-def train_hybrid_multiclass_model(
+def train_hybrid_model(
     model: nn.Module,
     X_raw_train: torch.Tensor,
     X_feat_train: torch.Tensor,
@@ -324,6 +325,7 @@ def train_hybrid_multiclass_model(
                 history["iter_val_iter"].append(iteration)
                 history["iter_val_loss"].append(val_loss_iter)
                 history["iter_val_acc"].append(val_acc_iter)
+                model.train()
 
         train_loss = train_loss_sum / total_train
         train_acc = correct_train / total_train

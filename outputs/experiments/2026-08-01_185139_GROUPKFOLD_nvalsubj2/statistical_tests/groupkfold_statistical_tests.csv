@@ -1,0 +1,17 @@
+metric,comparison,test,mean_difference,p_value_two_sided,n_units,unit
+epoch_accuracy,Raw EEGNet-like CNN vs chance (0.5),exact sign-flip permutation across GroupKFold folds (exploratory; training sets overlap),0.045853748502518644,0.2727272727272727,5,GroupKFold folds
+epoch_accuracy,Features1D CNN vs chance (0.5),exact sign-flip permutation across GroupKFold folds (exploratory; training sets overlap),0.03906858474036469,0.21212121212121213,5,GroupKFold folds
+epoch_accuracy,Features2D CNN vs chance (0.5),exact sign-flip permutation across GroupKFold folds (exploratory; training sets overlap),0.012343408964011949,0.696969696969697,5,GroupKFold folds
+epoch_accuracy,Hybrid Raw + Features CNN vs chance (0.5),exact sign-flip permutation across GroupKFold folds (exploratory; training sets overlap),0.014135867878925245,0.696969696969697,5,GroupKFold folds
+epoch_accuracy,Raw EEGNet-like CNN vs Features1D CNN,exact sign-flip permutation across GroupKFold folds (exploratory; training sets overlap),0.006785163762153957,0.7575757575757576,5,GroupKFold folds
+epoch_accuracy,Raw EEGNet-like CNN vs Features2D CNN,exact sign-flip permutation across GroupKFold folds (exploratory; training sets overlap),0.0335103395385067,0.21212121212121213,5,GroupKFold folds
+epoch_accuracy,Raw EEGNet-like CNN vs Hybrid Raw + Features CNN,exact sign-flip permutation across GroupKFold folds (exploratory; training sets overlap),0.031717880623593396,0.2727272727272727,5,GroupKFold folds
+epoch_accuracy,Features1D CNN vs Features2D CNN,exact sign-flip permutation across GroupKFold folds (exploratory; training sets overlap),0.02672517577635274,0.45454545454545453,5,GroupKFold folds
+epoch_accuracy,Features1D CNN vs Hybrid Raw + Features CNN,exact sign-flip permutation across GroupKFold folds (exploratory; training sets overlap),0.02493271686143944,0.15151515151515152,5,GroupKFold folds
+epoch_accuracy,Features2D CNN vs Hybrid Raw + Features CNN,exact sign-flip permutation across GroupKFold folds (exploratory; training sets overlap),-0.0017924589149132975,0.9393939393939394,5,GroupKFold folds
+epoch_f1,Raw EEGNet-like CNN vs Features1D CNN,exact sign-flip permutation across GroupKFold folds (exploratory; training sets overlap),0.06190225400879194,0.6363636363636364,5,GroupKFold folds
+epoch_f1,Raw EEGNet-like CNN vs Features2D CNN,exact sign-flip permutation across GroupKFold folds (exploratory; training sets overlap),0.10005440139548054,0.2727272727272727,5,GroupKFold folds
+epoch_f1,Raw EEGNet-like CNN vs Hybrid Raw + Features CNN,exact sign-flip permutation across GroupKFold folds (exploratory; training sets overlap),0.0778817186728403,0.21212121212121213,5,GroupKFold folds
+epoch_f1,Features1D CNN vs Features2D CNN,exact sign-flip permutation across GroupKFold folds (exploratory; training sets overlap),0.03815214738668861,0.7575757575757576,5,GroupKFold folds
+epoch_f1,Features1D CNN vs Hybrid Raw + Features CNN,exact sign-flip permutation across GroupKFold folds (exploratory; training sets overlap),0.01597946466404836,1.0,5,GroupKFold folds
+epoch_f1,Features2D CNN vs Hybrid Raw + Features CNN,exact sign-flip permutation across GroupKFold folds (exploratory; training sets overlap),-0.022172682722640245,0.6363636363636364,5,GroupKFold folds

@@ -1,9 +1,24 @@
 import csv
+import os
 from pathlib import Path
 from datetime import datetime
 
 import numpy as np
 import shutil
+import random
+import torch
+
+
+def set_random_seed(seed: int) -> None:
+    """Sets random seeds for reproducible model training and data loading."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True, warn_only=True)
 
 
 def load_dataset_npz(path):
@@ -36,6 +51,19 @@ def get_device(config):
     return torch.device(device_config)
 
 
+
+def print_model_parameter_count(model, model_name: str) -> None:
+    """Print total and trainable parameter counts for a PyTorch model."""
+    total_parameters = sum(parameter.numel() for parameter in model.parameters())
+    trainable_parameters = sum(
+        parameter.numel() for parameter in model.parameters() if parameter.requires_grad
+    )
+    print(
+        f"{model_name} parameters: {total_parameters:,} total; "
+        f"{trainable_parameters:,} trainable"
+    )
+
+
 def ensure_output_dirs(config):
     """
     Creates output directories and returns paths.
@@ -65,33 +93,61 @@ def save_config_copy(config_path, output_dir):
     shutil.copy(config_path, output_dir / "config_used.yaml")
 
 
-def create_experiment_output_dirs(config, model_name: str):
-    """
-    Creates unique output directories for one experiment run.
+EXPERIMENT_DIR_ENV = "EEG_EXPERIMENT_DIR"
 
-    Example:
-        outputs/models/raw_eegnetlike_loso_valsubj1_folds11_2026-05-16_1432
-        outputs/results/raw_eegnetlike_loso_valsubj1_folds11_2026-05-16_1432
-        outputs/plots/raw_eegnetlike_valsubj1_folds11_loso_2026-05-16_1432
-    """
 
+def create_experiment_root(config, timestamp: str | None = None) -> Path:
+    """Create the common output root for a complete experiment."""
     outputs_config = config["outputs"]
-    validation_config = config["validation"]
-    val_method = validation_config.get("method", "LOSO").lower()
-    subj_string = f"nvalsubj{validation_config.get('n_validation_subjects', 1)}"
+    validation_method = str(config["validation"].get("method", "LOSO")).upper()
+    n_validation_subjects = config["validation"].get("n_validation_subjects", 1)
+    timestamp = timestamp or datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    experiments_dir = Path(
+        outputs_config.get(
+            "experiments_dir",
+            Path(outputs_config.get("output_dir", "outputs")) / "experiments",
+        )
+    )
+    experiment_dir = experiments_dir / f"{timestamp}_{validation_method}_nvalsubj{n_validation_subjects}"
+    experiment_dir.mkdir(parents=True, exist_ok=False)
 
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    experiment_name = f"{model_name}_{val_method}_{subj_string}_{timestamp}"
+    for directory_name in ("models", "results", "plots", "analysis", "experiment_timings", "statistical_tests"):
+        (experiment_dir / directory_name).mkdir()
 
-    models_dir = Path(outputs_config["models_dir"]) / experiment_name
-    results_dir = Path(outputs_config["results_dir"]) / experiment_name
-    plots_dir = Path(outputs_config["plots_dir"]) / experiment_name
+    config_path = Path("config.yaml")
+    if config_path.is_file():
+        save_config_copy(config_path, experiment_dir)
 
-    models_dir.mkdir(parents=True, exist_ok=False)
-    results_dir.mkdir(parents=True, exist_ok=False)
-    plots_dir.mkdir(parents=True, exist_ok=False)
+    return experiment_dir
 
-    return models_dir, results_dir, plots_dir, experiment_name
+
+def create_experiment_output_dirs(config, model_name: str):
+    """Create model-specific folders within one experiment root.
+
+    When EEG_EXPERIMENT_DIR is set (by run_all_models.py), all models share
+    that root. Standalone model runs create a new date-first experiment root.
+    """
+    shared_root = os.environ.get(EXPERIMENT_DIR_ENV)
+    if shared_root:
+        experiment_dir = Path(shared_root).resolve()
+        if not experiment_dir.is_dir():
+            raise FileNotFoundError(
+                f"Experiment directory from {EXPERIMENT_DIR_ENV} does not exist: "
+                f"{experiment_dir}"
+            )
+        for directory_name in ("models", "results", "plots", "analysis", "experiment_timings", "statistical_tests"):
+            (experiment_dir / directory_name).mkdir(exist_ok=True)
+    else:
+        experiment_dir = create_experiment_root(config).resolve()
+
+    models_dir = experiment_dir / "models" / model_name
+    results_dir = experiment_dir / "results" / model_name
+    plots_dir = experiment_dir / "plots" / model_name
+
+    for directory in (models_dir, results_dir, plots_dir):
+        directory.mkdir(parents=True, exist_ok=False)
+
+    return models_dir, results_dir, plots_dir, experiment_dir.name
 
 
 def print_metric_summary(metrics):

@@ -1,0 +1,7 @@
+stage,command,status,return_code,start_datetime,end_datetime,duration_seconds,duration_minutes
+Raw EEGNet-like CNN,C:\Users\janre\PycharmProjects\eeg-caffeine-input-representation-cnn\.venv\Scripts\python.exe src/train_eval/run_cnn_eegnetlike.py,SUCCESS,0,2026-07-30 17:00:24,2026-07-30 18:23:33,4989.137366599985,83.15228944333309
+Features1D CNN,C:\Users\janre\PycharmProjects\eeg-caffeine-input-representation-cnn\.venv\Scripts\python.exe src/train_eval/run_cnn_features1d.py,SUCCESS,0,2026-07-30 18:23:33,2026-07-30 18:25:03,90.37047610001173,1.5061746016668622
+Features2D CNN,C:\Users\janre\PycharmProjects\eeg-caffeine-input-representation-cnn\.venv\Scripts\python.exe src/train_eval/run_cnn_features2d.py,SUCCESS,0,2026-07-30 18:25:03,2026-07-30 18:27:36,152.83434429997578,2.547239071666263
+Hybrid Raw + Features CNN,C:\Users\janre\PycharmProjects\eeg-caffeine-input-representation-cnn\.venv\Scripts\python.exe src/train_eval/run_cnn_hybrid.py,SUCCESS,0,2026-07-30 18:27:36,2026-07-30 20:39:58,7941.59066039999,132.35984433999982
+Model comparison analysis,C:\Users\janre\PycharmProjects\eeg-caffeine-input-representation-cnn\.venv\Scripts\python.exe src/train_eval/analyze_model_results.py,SUCCESS,0,2026-07-30 20:39:58,2026-07-30 20:40:02,3.981556999962777,0.06635928333271295
+LOSO statistical tests,C:\Users\janre\PycharmProjects\eeg-caffeine-input-representation-cnn\.venv\Scripts\python.exe src/train_eval/run_statistical_tests.py,SUCCESS,0,2026-07-30 20:40:02,2026-07-30 20:40:10,7.840834100032225,0.13068056833387043

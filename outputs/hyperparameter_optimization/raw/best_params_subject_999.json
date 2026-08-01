@@ -1,0 +1,16 @@
+{
+  "outer_test_subject": "999",
+  "best_inner_balanced_accuracy": 0.5498703035549893,
+  "inner_balanced_accuracy_std": 0.024777192833927306,
+  "selection_score": 0.5473925842715966,
+  "best_params": {
+    "learning_rate": 2.7911816443994992e-05,
+    "weight_decay": 0.000388902013602945,
+    "dropout": 0.4866355666009949,
+    "label_smoothing": 0.030216539989056893,
+    "temporal_filters": 8,
+    "depth_multiplier": 2,
+    "temporal_kernel_size": 64,
+    "separable_kernel_size": 8
+  }
+}

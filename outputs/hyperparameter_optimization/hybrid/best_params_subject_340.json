@@ -1,0 +1,18 @@
+{
+  "outer_test_subject": "340",
+  "best_inner_balanced_accuracy": 0.6109967308905234,
+  "inner_balanced_accuracy_std": 0.06204370587019111,
+  "selection_score": 0.6047923603035044,
+  "best_params": {
+    "learning_rate": 4.059611610484306e-05,
+    "weight_decay": 0.0001994735470307447,
+    "dropout": 0.5011807565247405,
+    "label_smoothing": 0.029122914019804193,
+    "raw_temporal_filters": 8,
+    "feature_conv1_filters": 16,
+    "feature_conv2_filters": 32,
+    "raw_embedding_units": 32,
+    "feature_embedding_units": 16,
+    "fusion_hidden_units": 16
+  }
+}

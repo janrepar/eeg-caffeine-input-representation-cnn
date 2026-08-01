@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import json
 from pathlib import Path
 
 import numpy as np
@@ -10,9 +11,9 @@ sys.path.append(os.path.abspath("."))
 
 from src.models.cnn_eegnetlike import EEGNetLike
 from src.train_eval.split import (create_loso_splits, create_groupkfold_splits, create_train_val_split_by_subject)
-from src.train_eval.train import train_multiclass_model
+from src.train_eval.train import train_model
 from src.train_eval.evaluate import (predict_multiclass_model, compute_binary_metrics)
-from src.train_eval.common import (load_dataset_npz, get_device, create_experiment_output_dirs, print_metric_summary, summarize_metric_list, save_fold_metrics_csv, save_loso_summary_report, save_config_copy, save_model_checkpoint, standardize_raw_train_val_test)
+from src.train_eval.common import (load_dataset_npz, get_device, create_experiment_output_dirs, print_metric_summary, summarize_metric_list, save_fold_metrics_csv, save_loso_summary_report, save_config_copy, save_model_checkpoint, standardize_raw_train_val_test, set_random_seed, print_model_parameter_count)
 from src.train_eval.visualizations import (plot_training_history, plot_training_history_by_iteration, save_confusion_matrix_plot, plot_metric_by_fold, plot_epoch_metrics_summary, plot_roc_curve_for_fold, plot_all_folds_roc_curve,save_final_confusion_matrix, plot_loso_performance_summary)
 from src.utils.helpers import load_config
 
@@ -30,6 +31,7 @@ def results_to_y_arrays(results):
 
 def main():
     config = load_config("config.yaml")
+    set_random_seed(config["project"]["random_seed"])
 
     run_start_time = time.perf_counter()
 
@@ -256,6 +258,15 @@ def main():
         print("X_val:", X_val.shape)
         print("X_test:", X_test.shape)
 
+        if validation_method == "LOSO":
+            hpo_path = Path(config["outputs"]["output_dir"]) / "hyperparameter_optimization" / "raw" / f"best_params_subject_{test_subject_label}.json"
+            if not hpo_path.is_file():
+                raise FileNotFoundError(f"Missing Optuna parameters for test subject {test_subject_label}: {hpo_path}")
+            with open(hpo_path, encoding="utf-8") as hpo_file:
+                optimized_params = json.load(hpo_file)["best_params"]
+            model_config.update({key: value for key, value in optimized_params.items() if key not in {"learning_rate", "weight_decay"}})
+            training_config.update({key: value for key, value in optimized_params.items() if key in {"learning_rate", "weight_decay", "label_smoothing"}})
+            label_smoothing = training_config.get("label_smoothing", 0.0)
         model = EEGNetLike(
             n_channels=n_channels,
             n_timepoints=n_timepoints,
@@ -267,7 +278,9 @@ def main():
             separable_kernel_size=model_config.get("separable_kernel_size", 16)
         )
 
-        model, history = train_multiclass_model(
+        print_model_parameter_count(model, "Raw EEGNet-like CNN")
+
+        model, history = train_model(
             model=model,
             X_train=X_train,
             y_train=y_train,

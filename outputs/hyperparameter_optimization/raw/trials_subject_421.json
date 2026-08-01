@@ -1,0 +1,257 @@
+[
+  {
+    "number": 0,
+    "state": "COMPLETE",
+    "selection_score": 0.5372337579189381,
+    "mean_inner_balanced_accuracy": 0.5381117550300414,
+    "std_inner_balanced_accuracy": 0.008779971111032153,
+    "params": {
+      "learning_rate": 5.6115164153345e-05,
+      "weight_decay": 0.0022648248189516837,
+      "dropout": 0.6061978796339917,
+      "label_smoothing": 0.05986584841970366,
+      "temporal_filters": 8,
+      "depth_multiplier": 2,
+      "temporal_kernel_size": 128,
+      "separable_kernel_size": 8
+    }
+  },
+  {
+    "number": 1,
+    "state": "COMPLETE",
+    "selection_score": 0.5722631330697805,
+    "mean_inner_balanced_accuracy": 0.575597586101551,
+    "std_inner_balanced_accuracy": 0.03334453031770455,
+    "params": {
+      "learning_rate": 2.6587543983272695e-05,
+      "weight_decay": 2.820996133514491e-05,
+      "dropout": 0.4141915784487018,
+      "label_smoothing": 0.030424224295953775,
+      "temporal_filters": 8,
+      "depth_multiplier": 2,
+      "temporal_kernel_size": 300,
+      "separable_kernel_size": 16
+    }
+  },
+  {
+    "number": 2,
+    "state": "COMPLETE",
+    "selection_score": 0.5283593005378134,
+    "mean_inner_balanced_accuracy": 0.5299780051648405,
+    "std_inner_balanced_accuracy": 0.016187046270270535,
+    "params": {
+      "learning_rate": 2.5081156860452307e-05,
+      "weight_decay": 0.00018785426399210597,
+      "dropout": 0.5573450991017148,
+      "label_smoothing": 0.0046450412719997725,
+      "temporal_filters": 8,
+      "depth_multiplier": 2,
+      "temporal_kernel_size": 64,
+      "separable_kernel_size": 16
+    }
+  },
+  {
+    "number": 3,
+    "state": "COMPLETE",
+    "selection_score": 0.5390079525243853,
+    "mean_inner_balanced_accuracy": 0.5399364888000588,
+    "std_inner_balanced_accuracy": 0.009285362756736096,
+    "params": {
+      "learning_rate": 7.591104805282687e-05,
+      "weight_decay": 2.0058733363444943e-05,
+      "dropout": 0.5233119185389445,
+      "label_smoothing": 0.0034388521115218396,
+      "temporal_filters": 8,
+      "depth_multiplier": 1,
+      "temporal_kernel_size": 128,
+      "separable_kernel_size": 8
+    }
+  },
+  {
+    "number": 4,
+    "state": "COMPLETE",
+    "selection_score": 0.5566152749406502,
+    "mean_inner_balanced_accuracy": 0.5586507212357641,
+    "std_inner_balanced_accuracy": 0.020354462951138477,
+    "params": {
+      "learning_rate": 0.0007568292060167617,
+      "weight_decay": 0.0016466293382966786,
+      "dropout": 0.5592649925838797,
+      "label_smoothing": 0.09218742350231168,
+      "temporal_filters": 16,
+      "depth_multiplier": 2,
+      "temporal_kernel_size": 300,
+      "separable_kernel_size": 8
+    }
+  },
+  {
+    "number": 5,
+    "state": "COMPLETE",
+    "selection_score": 0.5375278694750211,
+    "mean_inner_balanced_accuracy": 0.5393643979861334,
+    "std_inner_balanced_accuracy": 0.018365285111123255,
+    "params": {
+      "learning_rate": 2.095181752243777e-05,
+      "weight_decay": 2.2188620945677318e-05,
+      "dropout": 0.40475855573729264,
+      "label_smoothing": 0.06492430982227393,
+      "temporal_filters": 8,
+      "depth_multiplier": 2,
+      "temporal_kernel_size": 64,
+      "separable_kernel_size": 16
+    }
+  },
+  {
+    "number": 6,
+    "state": "COMPLETE",
+    "selection_score": 0.5262697177218411,
+    "mean_inner_balanced_accuracy": 0.529605426632557,
+    "std_inner_balanced_accuracy": 0.03335708910716007,
+    "params": {
+      "learning_rate": 3.0216499001571922e-05,
+      "weight_decay": 2.7946259449089166e-05,
+      "dropout": 0.43498950743325127,
+      "label_smoothing": 0.016447461405643293,
+      "temporal_filters": 16,
+      "depth_multiplier": 2,
+      "temporal_kernel_size": 300,
+      "separable_kernel_size": 16
+    }
+  },
+  {
+    "number": 7,
+    "state": "COMPLETE",
+    "selection_score": 0.5649507261849689,
+    "mean_inner_balanced_accuracy": 0.5672415368337647,
+    "std_inner_balanced_accuracy": 0.022908106487957377,
+    "params": {
+      "learning_rate": 0.0001261068028947384,
+      "weight_decay": 4.703876529721276e-05,
+      "dropout": 0.3534450984990404,
+      "label_smoothing": 0.011382027623872328,
+      "temporal_filters": 8,
+      "depth_multiplier": 2,
+      "temporal_kernel_size": 64,
+      "separable_kernel_size": 16
+    }
+  },
+  {
+    "number": 8,
+    "state": "COMPLETE",
+    "selection_score": 0.5197797682576895,
+    "mean_inner_balanced_accuracy": 0.5220555820259477,
+    "std_inner_balanced_accuracy": 0.022758137682582936,
+    "params": {
+      "learning_rate": 1.199091231441322e-05,
+      "weight_decay": 1.897403600132788e-05,
+      "dropout": 0.3750808894601642,
+      "label_smoothing": 0.0017941388187190203,
+      "temporal_filters": 8,
+      "depth_multiplier": 2,
+      "temporal_kernel_size": 128,
+      "separable_kernel_size": 8
+    }
+  },
+  {
+    "number": 9,
+    "state": "COMPLETE",
+    "selection_score": 0.5672029353120036,
+    "mean_inner_balanced_accuracy": 0.5707322343243418,
+    "std_inner_balanced_accuracy": 0.03529299012338278,
+    "params": {
+      "learning_rate": 0.00012573677090284014,
+      "weight_decay": 0.00011395688036009009,
+      "dropout": 0.49413432074130975,
+      "label_smoothing": 0.06420220065768834,
+      "temporal_filters": 8,
+      "depth_multiplier": 2,
+      "temporal_kernel_size": 300,
+      "separable_kernel_size": 16
+    }
+  },
+  {
+    "number": 10,
+    "state": "COMPLETE",
+    "selection_score": 0.5463674409091204,
+    "mean_inner_balanced_accuracy": 0.5485542875521806,
+    "std_inner_balanced_accuracy": 0.021868466430601963,
+    "params": {
+      "learning_rate": 1.3721382980311389e-05,
+      "weight_decay": 0.00024013907966455298,
+      "dropout": 0.5001799947700898,
+      "label_smoothing": 0.06460955171054222,
+      "temporal_filters": 8,
+      "depth_multiplier": 2,
+      "temporal_kernel_size": 300,
+      "separable_kernel_size": 8
+    }
+  },
+  {
+    "number": 11,
+    "state": "COMPLETE",
+    "selection_score": 0.5449833528710153,
+    "mean_inner_balanced_accuracy": 0.5492200196194109,
+    "std_inner_balanced_accuracy": 0.04236666748395632,
+    "params": {
+      "learning_rate": 0.0003077590843635195,
+      "weight_decay": 0.00012896230725846047,
+      "dropout": 0.5281145737243128,
+      "label_smoothing": 0.08555378602883978,
+      "temporal_filters": 8,
+      "depth_multiplier": 2,
+      "temporal_kernel_size": 300,
+      "separable_kernel_size": 16
+    }
+  },
+  {
+    "number": 12,
+    "state": "COMPLETE",
+    "selection_score": 0.5620435939125178,
+    "mean_inner_balanced_accuracy": 0.564724553257232,
+    "std_inner_balanced_accuracy": 0.02680959344714231,
+    "params": {
+      "learning_rate": 2.6007945659064077e-05,
+      "weight_decay": 0.0006736417655108566,
+      "dropout": 0.37561639208360786,
+      "label_smoothing": 0.02721001980642593,
+      "temporal_filters": 8,
+      "depth_multiplier": 2,
+      "temporal_kernel_size": 300,
+      "separable_kernel_size": 16
+    }
+  },
+  {
+    "number": 13,
+    "state": "COMPLETE",
+    "selection_score": 0.5620312068047647,
+    "mean_inner_balanced_accuracy": 0.5662403380588906,
+    "std_inner_balanced_accuracy": 0.04209131254125917,
+    "params": {
+      "learning_rate": 4.626943713691341e-05,
+      "weight_decay": 1.046421054320886e-05,
+      "dropout": 0.529608559166659,
+      "label_smoothing": 0.08330108210607305,
+      "temporal_filters": 8,
+      "depth_multiplier": 2,
+      "temporal_kernel_size": 300,
+      "separable_kernel_size": 16
+    }
+  },
+  {
+    "number": 14,
+    "state": "COMPLETE",
+    "selection_score": 0.5637264613095464,
+    "mean_inner_balanced_accuracy": 0.5690733839145729,
+    "std_inner_balanced_accuracy": 0.05346922605026479,
+    "params": {
+      "learning_rate": 0.00017712782134955273,
+      "weight_decay": 6.855607555879589e-05,
+      "dropout": 0.6680283626603892,
+      "label_smoothing": 0.038317335820013135,
+      "temporal_filters": 8,
+      "depth_multiplier": 2,
+      "temporal_kernel_size": 300,
+      "separable_kernel_size": 16
+    }
+  }
+]

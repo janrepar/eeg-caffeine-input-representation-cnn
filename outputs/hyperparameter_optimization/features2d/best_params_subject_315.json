@@ -1,0 +1,15 @@
+{
+  "outer_test_subject": "315",
+  "best_inner_balanced_accuracy": 0.6366001284794104,
+  "inner_balanced_accuracy_std": 0.03491532718885141,
+  "selection_score": 0.6331085957605253,
+  "best_params": {
+    "learning_rate": 0.00040540117191573897,
+    "weight_decay": 0.0003329112811758937,
+    "dropout": 0.4286175463022781,
+    "label_smoothing": 0.09582188095105995,
+    "conv1_filters": 8,
+    "conv2_filters": 16,
+    "hidden_units": 16
+  }
+}

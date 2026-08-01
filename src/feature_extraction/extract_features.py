@@ -25,7 +25,6 @@ def get_feature_names_per_channel(feature_config: dict | None = None) -> list[st
             "use_frequency": True,
             "use_entropy": True,
             "frequency_bands": {
-                "delta": [0.5, 4],
                 "theta": [4, 8],
                 "alpha": [8, 13],
                 "beta": [13, 30],
@@ -61,7 +60,6 @@ def extract_channel_features(signal: np.ndarray, fs: int, feature_config: dict |
             "use_frequency": True,
             "use_entropy": True,
             "frequency_bands": {
-                "delta": [0.5, 4],
                 "theta": [4, 8],
                 "alpha": [8, 13],
                 "beta": [13, 30],
@@ -76,10 +74,10 @@ def extract_channel_features(signal: np.ndarray, fs: int, feature_config: dict |
 
     if feature_config.get("use_frequency", True):
         frequency_bands = feature_config.get("frequency_bands", None)
-        features.extend(extract_frequency_features(signal, fs, frequency_bands))
+        features.extend(extract_frequency_features(signal, fs, frequency_bands, nperseg=feature_config.get("welch_nperseg")))
 
     if feature_config.get("use_entropy", True):
-        features.extend(extract_entropy_features(signal, fs))
+        features.extend(extract_entropy_features(signal, fs, nperseg=feature_config.get("welch_nperseg")))
 
     return features
 

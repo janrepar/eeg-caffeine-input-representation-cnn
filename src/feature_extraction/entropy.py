@@ -2,21 +2,14 @@ import numpy as np
 from scipy.signal import welch
 from scipy.stats import entropy
 
-
-def spectral_entropy(signal: np.ndarray, fs: int) -> float:
-    _, psd = welch(signal, fs=fs, nperseg=min(256, len(signal)))
-
+def spectral_entropy(signal: np.ndarray, fs: int, nperseg: int | None = None) -> float:
+    if nperseg is None:
+        nperseg = len(signal)
+    _, psd = welch(signal, fs=fs, nperseg=min(int(nperseg), len(signal)))
     psd = psd + 1e-12
-    psd_norm = psd / np.sum(psd)
+    return entropy(psd / np.sum(psd))
 
-    return entropy(psd_norm)
+def extract_entropy_features(signal: np.ndarray, fs: int, nperseg: int | None = None) -> list[float]:
+    return [spectral_entropy(signal, fs, nperseg=nperseg)]
 
-
-def extract_entropy_features(signal: np.ndarray, fs: int) -> list[float]:
-    return [
-        spectral_entropy(signal, fs)
-    ]
-
-ENTROPY_FEATURE_NAMES = [
-    "spectral_entropy",
-]
+ENTROPY_FEATURE_NAMES = ["spectral_entropy"]

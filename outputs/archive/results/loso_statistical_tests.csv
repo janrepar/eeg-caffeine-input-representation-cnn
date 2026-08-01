@@ -1,0 +1,11 @@
+comparison,test,mean_difference,p_value_two_sided,n_participants
+Features1D CNN vs chance (0.5),exact one-sample sign-flip permutation,0.02479122001691252,0.5080527086383602,11
+Features2D CNN vs chance (0.5),exact one-sample sign-flip permutation,0.0634493676555929,0.3118594436310395,11
+Hybrid Raw + Features CNN vs chance (0.5),exact one-sample sign-flip permutation,0.05105048744991243,0.08247925817471938,11
+Raw EEGNet-like CNN vs chance (0.5),exact one-sample sign-flip permutation,0.02972882302061226,0.17227916056612982,11
+Features1D CNN vs Features2D CNN,exact paired sign-flip permutation,-0.03865814763868039,0.41239629087359686,11
+Features1D CNN vs Hybrid Raw + Features CNN,exact paired sign-flip permutation,-0.026259267432999913,0.3870180575890678,11
+Features1D CNN vs Raw EEGNet-like CNN,exact paired sign-flip permutation,-0.00493760300369974,0.8887262079062958,11
+Features2D CNN vs Hybrid Raw + Features CNN,exact paired sign-flip permutation,0.012398880205680479,0.8008784773060029,11
+Features2D CNN vs Raw EEGNet-like CNN,exact paired sign-flip permutation,0.03372054463498065,0.5431918008784773,11
+Hybrid Raw + Features CNN vs Raw EEGNet-like CNN,exact paired sign-flip permutation,0.021321664429300172,0.4055636896046852,11

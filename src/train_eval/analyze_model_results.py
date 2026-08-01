@@ -1,3 +1,4 @@
+import os
 import sys
 import yaml
 from pathlib import Path
@@ -13,7 +14,36 @@ import matplotlib.pyplot as plt
 from src.utils.helpers import load_config, load_used_config, get_nested
 
 
-def find_latest_result_dir(results_root: Path, model_prefix: str) -> Path | None:
+MODEL_ORDER = [
+    "Raw EEGNet-like CNN",
+    "Features1D CNN",
+    "Features2D CNN",
+    "Hybrid Raw + Features CNN",
+]
+
+
+def order_model_names(model_names) -> list:
+    """Return known models in the fixed comparison order, then unknown names."""
+    names = list(model_names)
+    known = [name for name in MODEL_ORDER if name in names]
+    unknown = sorted(name for name in names if name not in MODEL_ORDER)
+    return known + unknown
+
+
+def order_model_rows(df: pd.DataFrame) -> pd.DataFrame:
+    """Order model rows consistently for summaries and comparison charts."""
+    if "model_name" not in df.columns:
+        return df.copy()
+
+    order = {name: index for index, name in enumerate(MODEL_ORDER)}
+    return (
+        df.assign(_model_order=df["model_name"].map(order).fillna(len(MODEL_ORDER)))
+        .sort_values("_model_order", kind="stable")
+        .drop(columns="_model_order")
+    )
+
+
+def find_latest_result_dir(results_root: Path, model_prefix: str, csv_filename: str) -> Path | None:
     """
     Finds latest result directory for a given model prefix.
 
@@ -26,7 +56,7 @@ def find_latest_result_dir(results_root: Path, model_prefix: str) -> Path | None
 
     candidates = [
         path for path in results_root.iterdir()
-        if path.is_dir() and path.name.startswith(model_prefix)
+        if path.is_dir() and path.name.startswith(model_prefix) and (path / csv_filename).is_file()
     ]
 
     if not candidates:
@@ -52,7 +82,7 @@ def summarize_metric(series: pd.Series):
 
 
 def load_model_results(results_root: Path, model_name: str, model_prefix: str, csv_filename: str):
-    latest_dir = find_latest_result_dir(results_root, model_prefix)
+    latest_dir = find_latest_result_dir(results_root, model_prefix, csv_filename)
 
     if latest_dir is None:
         print(f"No result directory found for model prefix: {model_prefix}")
@@ -120,7 +150,13 @@ def write_used_configs_txt(model_configs: list, output_path: Path):
 
 def main():
     config = load_config("config.yaml")
-    results_root = Path("outputs/results")
+    experiment_dir_value = os.environ.get("EEG_EXPERIMENT_DIR")
+    experiment_dir = Path(experiment_dir_value).resolve() if experiment_dir_value else None
+    results_root = (
+        experiment_dir / "results"
+        if experiment_dir is not None
+        else Path(config["outputs"]["results_dir"])
+    )
 
     validation_method = config["validation"].get("method", "LOSO").lower()
     validation_method_title = validation_method.upper()
@@ -238,7 +274,7 @@ def main():
         raise RuntimeError("No model result CSV files were loaded.")
 
     all_folds_df = pd.concat(all_fold_dfs, ignore_index=True)
-    summary_df = pd.DataFrame(summary_rows)
+    summary_df = order_model_rows(pd.DataFrame(summary_rows))
 
     if first_used_config is not None:
         comparison_validation_method = get_nested(
@@ -263,13 +299,15 @@ def main():
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
-    analysis_dir_name = make_analysis_dir_name(
-        validation_method=comparison_validation_method,
-        n_validation_subjects=comparison_n_validation_subjects,
-        timestamp=timestamp,
-    )
-
-    analysis_dir = Path("outputs/analysis") / analysis_dir_name
+    if experiment_dir is not None:
+        analysis_dir = experiment_dir / "analysis"
+    else:
+        analysis_dir_name = make_analysis_dir_name(
+            validation_method=comparison_validation_method,
+            n_validation_subjects=comparison_n_validation_subjects,
+            timestamp=timestamp,
+        )
+        analysis_dir = Path(config["outputs"]["output_dir"]) / "analysis" / analysis_dir_name
     analysis_dir.mkdir(parents=True, exist_ok=True)
 
     all_folds_output_path = analysis_dir / "all_model_fold_results.csv"
@@ -370,7 +408,7 @@ def plot_model_comparison_bar(summary_df, metric_mean_col, metric_std_col, ylabe
         print(f"Skipping plot. Missing column: {metric_mean_col}")
         return
 
-    df = df.sort_values(metric_mean_col, ascending=False)
+    df = order_model_rows(df)
 
     plt.figure(figsize=(10, 6))
 
@@ -414,6 +452,8 @@ def plot_metric_by_subject(all_folds_df, metric_col, title, output_path):
     )
 
     pivot_df = pivot_df.sort_index()
+    pivot_df = pivot_df.reindex(columns=order_model_names(pivot_df.columns))
+
 
     plt.figure(figsize=(12, 6))
     pivot_df.plot(kind="bar", figsize=(12, 6))

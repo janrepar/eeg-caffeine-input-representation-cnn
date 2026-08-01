@@ -3,17 +3,15 @@ from scipy.stats import skew, kurtosis
 
 
 def extract_time_features(signal: np.ndarray) -> list[float]:
-    hjorth_activity, hjorth_mobility, hjorth_complexity = hjorth_parameters(signal)
+    _, hjorth_mobility, hjorth_complexity = hjorth_parameters(signal)
 
     return [
         float(np.mean(signal)),
         float(np.std(signal)),
-        float(np.var(signal)),
         float(skew(signal)),
         float(kurtosis(signal, fisher=False)),
         float(np.min(signal)),
         float(np.max(signal)),
-        float(hjorth_activity),
         float(hjorth_mobility),
         float(hjorth_complexity),
     ]
@@ -41,12 +39,10 @@ def hjorth_parameters(signal: np.ndarray):
 STATISTICAL_FEATURE_NAMES = [
     "mean",
     "std",
-    "var",
     "skewness",
     "kurtosis",
     "min",
     "max",
-    "hjorth_activity",
     "hjorth_mobility",
     "hjorth_complexity"
 ]
