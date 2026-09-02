@@ -1,0 +1,39 @@
+{
+  "parameter_source": "LOSO Optuna aggregate",
+  "best_params": {
+    "depth_multiplier": 2,
+    "dropout": 0.48403708615267416,
+    "label_smoothing": 0.061029911408694015,
+    "learning_rate": 4.2811957766403425e-05,
+    "separable_kernel_size": 8,
+    "temporal_filters": 8,
+    "temporal_kernel_size": 300,
+    "weight_decay": 2.820996133514491e-05
+  },
+  "source_summary": "outputs\\hyperparameter_optimization\\raw\\nested_optimization_summary.json",
+  "n_loso_folds": 11,
+  "outer_test_subjects": [
+    "311",
+    "315",
+    "340",
+    "342",
+    "346",
+    "368",
+    "401",
+    "421",
+    "444",
+    "463",
+    "999"
+  ],
+  "aggregation_by_parameter": {
+    "depth_multiplier": "mode",
+    "dropout": "median",
+    "label_smoothing": "median",
+    "learning_rate": "median",
+    "separable_kernel_size": "mode",
+    "temporal_filters": "mode",
+    "temporal_kernel_size": "mode",
+    "weight_decay": "median"
+  },
+  "aggregation_rule": "median for continuous parameters; mode for integer/categorical parameters"
+}

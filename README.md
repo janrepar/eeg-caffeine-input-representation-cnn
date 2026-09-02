@@ -1,220 +1,197 @@
 # EEG caffeine input representation CNN
 
-Projekt preizkuša različne vhodne predstavitve EEG signalov za klasifikacijo stanja `Before` proti `After` pri eksperimentu s kofeinom oziroma placebom. Glavni cilj je primerjati modele, ki delajo neposredno na surovih EEG epohah, na ročno izračunanih značilkah ali na kombinaciji obeh predstavitev.
+Projekt primerja štiri CNN-arhitekture za binarno razvrščanje EEG-epoh Before in After v eksperimentu s kofeinom oziroma placebom: surovi EEG, 1D-značilke, 2D-značilke in hibridni vhod. Udeleženci so med učenjem, validacijo in testiranjem ločeni.
 
-## Kaj projekt vsebuje
+Aktivna konfiguracija je v config.yaml označena z različico 1.0.1. Spremembe od začetne različice so v [CHANGES.md](CHANGES.md): enotne mape poskusov, gnezdena Optuna optimizacija, referenčni klasifikatorji, statistični testi in razširjena EDA.
 
-- pripravo podatkov iz EEGLAB/MATLAB strukture `ALLEEG`;
-- gradnjo dveh `.npz` podatkovnih sklopov:
-  - očiščeni EEG: `(epohe, kanali, časovne_tocke)`;
-  - značilke: `(epohe, kanali, značilke)`;
-- ekstrakcijo časovnih, frekvenčnih in entropijskih značilk;
-- učenje in vrednotenje več CNN arhitektur;
-- subjektno neodvisno validacijo z `GROUPKFOLD` ali `LOSO`;
-- shranjevanje metrik, napovedi, modelov, konfiguracije in grafov v `outputs/`.
+## Zbirki in struktura
 
-Trenutno obdelana sklopa v `data/processed/` vsebujeta 3713 epoh, 32 EEG kanalov in 19 subjektov. Surovi vhod ima obliko `(3713, 32, 900)`, vhod z značilkami pa `(3713, 32, 16)`.
+Trenutni zbirki v data/processed/ vsebujeta 3.713 epoh, 32 kanalov in 19 udeležencev:
 
-## Struktura projekta
+~~~
+raw_dataset.npz:     (3713, 32, 900)
+feature_dataset.npz: (3713, 32, 13)
+~~~
 
-```text
+Končna analiza se glede na experiment.analysis_type omeji na Caffeine, Placebo ali obe skupini; trenutno je izbrana skupina Caffeine.
+
+~~~
 .
+├── CHANGES.md
 ├── config.yaml
 ├── requirements.txt
 ├── data/
-│   ├── raw/                         # surove .mat datoteke, niso namenjene commitu
-│   ├── processed/                   # generirani .npz podatkovni sklopi
+│   ├── raw/                         # vhodne .mat datoteke
+│   ├── processed/                   # ustvarjeni .npz zbirki
 │   ├── build_raw_dataset.py
 │   ├── build_feature_dataset.py
 │   └── load_dataset.py
 ├── notebooks/
-│   └── exploration.ipynb
+│   ├── exploration.ipynb            # EDA
+│   └── eda_figures/
 ├── src/
-│   ├── feature_extraction/          # časovne, frekvenčne in entropijske značilke
-│   ├── models/                      # CNN arhitekture
-│   ├── train_eval/                  # priprava, učenje, vrednotenje, grafi
+│   ├── feature_extraction/
+│   ├── models/
+│   ├── train_eval/
 │   └── utils/
-└── outputs/                         # rezultati poskusov
-```
+└── outputs/
+    ├── experiments/
+    ├── hyperparameter_optimization/
+    └── archive/
+~~~
 
-Datoteke `.mat` in `.npz` so v `.gitignore`, ker so velike oziroma generirane. Za ponovitev poskusov mora biti vhodna `.mat` datoteka na poti, nastavljeni v `config.yaml`.
+Velike in ustvarjene datoteke .mat/.npz so v .gitignore. Vhodna datoteka mora na data.data_path vsebovati ključ ALLEEG.
 
-## Namestitev okolja
+## Namestitev
 
-Priporočen je virtualni Python okoljski imenik. V tem projektu je lokalno okolje ustvarjeno s Python 3.14, vendar koda uporablja standardne knjižnice iz `requirements.txt`.
+Lokalno okolje uporablja Python 3.14. Namesti zahteve, tudi Optuna 4.x:
 
-```powershell
+~~~powershell
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+./.venv/Scripts/Activate.ps1
 pip install -r requirements.txt
-```
+~~~
 
-Če PowerShell blokira aktivacijo okolja, uporabi:
+Če PowerShell blokira aktivacijo:
 
-```powershell
+~~~powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
+~~~
 
-## Konfiguracija
+## Konfiguracija in priprava podatkov
 
-Glavne nastavitve so v `config.yaml`.
+config.yaml določa izbor skupine, poti podatkov, frekvenco vzorčenja, skupine značilk, validacijo, Optuna nastavitve, učenje, arhitekture in izhode. Trenutna privzeta validacija je GROUPKFOLD s petimi foldi in dvema validacijskima udeležencema. Pri use_validation_subject: true se validacijski udeleženci izberejo samo iz učnega dela.
 
-Pomembna polja:
-
-- `experiment.analysis_type` določa, kateri podatki se uporabijo:
-  - `caffeine_before_vs_after` uporabi samo skupino `Caffeine`;
-  - `placebo_before_vs_after` uporabi samo skupino `Placebo`;
-  - `before_vs_after` uporabi vse subjekte.
-- `data.data_path` kaže na vhodno `.mat` datoteko.
-- `data.raw_dataset_output` in `data.feature_dataset_output` določata izhodni `.npz` datoteki.
-- `features` določa nabor značilk in frekvenčne pasove.
-- `validation.method` podpira `GROUPKFOLD` in `LOSO`.
-- `training` določa epohe, velikost batcha, learning rate, early stopping in napravo.
-- `model` vsebuje hiperparametre posameznih arhitektur.
-- `outputs` določa mape za modele, metrike in grafe.
-
-## Priprava podatkov
-
-Pred učenjem modelov pripravi oba podatkovna sklopa:
-
-```powershell
+~~~powershell
 python src/train_eval/test_dataset_builders.py
-```
+~~~
 
-Skripta:
-
-- prebere `config.yaml`;
-- naloži `ALLEEG` iz `data.data_path`;
-- izdela surovi podatkovni sklop;
-- izdela podatkovni sklop z značilkami;
-- preveri, da se oznake, subjekti, pogoji in skupine med obema sklopoma ujemajo;
-- shrani rezultata v `data/processed/raw_dataset.npz` in `data/processed/feature_dataset.npz`.
-
-Oznake so binarne:
-
-- `Before = 0`
-- `After = 1`
+Skripta prebere ALLEEG, uporabi include_conditions in exclude_subjects, zgradi zbirki, preveri ujemanje oznak, udeležencev, pogojev in skupin ter ju shrani v data/processed/. Razreda sta Before = 0 in After = 1.
 
 ## Značilke
 
-Za vsak kanal in vsako epoho se lahko izračunajo:
+Trenutni vhod z značilkami ima 13 vrednosti na kanal:
 
-- časovne značilke: `mean`, `std`, `var`, `skewness`, `kurtosis`, `min`, `max`, `hjorth_activity`, `hjorth_mobility`, `hjorth_complexity`;
-- frekvenčne značilke: moč v pasovih `delta`, `theta`, `alpha`, `beta`, `gamma`;
-- entropijska značilka: `spectral_entropy`.
+- časovne: mean, std, skewness, kurtosis, min, max, hjorth_mobility, hjorth_complexity;
+- frekvenčne: log10 absolutna moč v theta (4–8 Hz), alpha (8–13 Hz), beta (13–30 Hz) in gamma (30–45 Hz);
+- entropijska: spectral_entropy.
 
-Pri trenutni konfiguraciji to pomeni 16 značilk na kanal.
+Welchova ocena za moč in entropijo uporablja celotno epoho: welch_nperseg: 900 pri 600 Hz. Delta pas je odstranjen, ker 1,5-sekundne epohe nimajo zanesljive ločljivosti. Skupine značilk je mogoče v konfiguraciji izključiti.
 
-## Modeli
+## Modeli in preprečevanje uhajanja podatkov
 
-Projekt primerja štiri modele:
+| Model | Datoteka | Vhod |
+| --- | --- | --- |
+| EEGNetLike | src/models/cnn_eegnetlike.py | (batch, 1, kanali, časovne_točke) |
+| CNNFeatures1D | src/models/cnn_features_1d.py | (batch, kanali, značilke) |
+| CNNFeatures2D | src/models/cnn_features_2d.py | (batch, 1, kanali, značilke) |
+| CNNHybrid | src/models/cnn_hybrid.py | surovi EEG in značilke |
 
-- `EEGNetLike` v `src/models/cnn_eegnetlike.py` uporablja surove EEG epohe z obliko `(batch, 1, kanali, časovne_tocke)`;
-- `CNNFeatures1D` v `src/models/cnn_features_1d.py` uporablja značilke z obliko `(batch, kanali, značilke)`;
-- `CNNFeatures2D` v `src/models/cnn_features_2d.py` uporablja značilke kot 2D vhod z obliko `(batch, 1, kanali, značilke)`;
-- `CNNHybrid` v `src/models/cnn_hybrid.py` združi surovi EEG vhod in vhod z značilkami.
+Modeli vrnejo logite za dva razreda in uporabljajo CrossEntropyLoss z izbirnim label_smoothing; učne skripte izpišejo skupno in učno število parametrov.
 
-Vsi modeli uporabljajo PyTorch in vračajo logite za dva razreda.
+LOSO pusti enega udeleženca za test v vsakem foldu, GROUPKFOLD pa udeležence razdeli v n_splits skupin. V vsakem foldu se validacijski udeleženci izberejo iz učne množice. Značilke se standardizirajo po kanalih in značilkah, surovi EEG po kanalih prek učnih epoh in časovnih točk; validacija in test uporabita samo učne statistike. project.random_seed nastavi semena Python, NumPy in PyTorch ter deterministične CUDA nastavitve, kadar so na voljo.
 
-## Zagon poskusov
+## Zagon in izhodi
 
-Posamezen model lahko zaženeš z eno od skript:
+Za celoten poskus:
 
-```powershell
+~~~powershell
+python src/train_eval/run_all_models.py
+~~~
+
+Skripta ustvari outputs/experiments/<čas>_<VALIDACIJA>_nvalsubj<N>/, nauči vse štiri modele ter po uspešnem učenju samodejno požene primerjalno analizo in statistične teste. Ob napaki se potek ustavi. experiment_timings/model_runtime_summary.csv zabeleži stanje in trajanje stopenj.
+
+Posamezni modeli:
+
+~~~powershell
 python src/train_eval/run_cnn_eegnetlike.py
 python src/train_eval/run_cnn_features1d.py
 python src/train_eval/run_cnn_features2d.py
 python src/train_eval/run_cnn_hybrid.py
-```
+~~~
 
-Vse modele zaporedoma zaženeš z:
+Samostojni zagon ustvari svojo mapo. Za naknadno obdelavo uporabi:
 
-```powershell
-python src/train_eval/run_all_models.py
-```
-
-Ta skripta izmeri čas izvajanja vsakega modela in shrani povzetek v:
-
-```text
-outputs/experiment_timings/
-```
-
-Če katerikoli model odpove, se zaporedni zagon ustavi, da ne porablja časa za nadaljnje poskuse.
-
-## Analiza rezultatov
-
-Po zagonu modelov lahko primerjaš zadnje rezultate vseh modelov:
-
-```powershell
+~~~powershell
 python src/train_eval/analyze_model_results.py
-```
+python src/train_eval/run_statistical_tests.py
+~~~
 
-Skripta prebere zadnje mape z rezultati za posamezne modele, izračuna povzetke metrik in shrani primerjalne tabele ter grafe v `outputs/analysis/`.
+Ročni skripti poiščeta najnovejše popolne rezultate v outputs/results; v poteku run_all_models.py uporabita skupno aktivno mapo.
 
-## Izhodi
+~~~
+outputs/experiments/<čas>_<VALIDACIJA>_nvalsubj<N>/
+├── config_used.yaml
+├── models/<model>/                  # .pt kontrolne točke
+├── results/<model>/                 # CSV metrike, povzetki in runtime
+├── plots/<model>/                   # učne krivulje, ROC, matrike zamenjav
+├── analysis/                        # primerjava modelov
+├── statistical_tests/               # bazne napovedi in testi
+└── experiment_timings/
+~~~
 
-Vsak zagon modela ustvari časovno označene mape:
+Metrike po foldih vključujejo testne/validacijske udeležence, najboljšo epoho, najboljše učne/validacijske vrednosti ter epoch_accuracy, epoch_precision, epoch_recall, epoch_f1 in epoch_roc_auc. analysis vsebuje all_model_fold_results.csv, model_comparison_summary.csv, uporabljene konfiguracije in primerjalne grafe za točnost, F1 in ROC-AUC; vrstni red je Raw EEGNet-like, Features1D, Features2D, Hybrid.
 
-```text
-outputs/models/<ime_modela>_<timestamp>/
-outputs/results/<ime_modela>_<timestamp>/
-outputs/plots/<ime_modela>_<timestamp>/
-```
+statistical_tests vsebuje klasifikatorja vedno Before in vedno After ter dvostranske natančne sign-flip teste: vsak model proti naključni točnosti 0,5 in vsi pari modelov za epoch_accuracy in epoch_f1. LOSO teste interpretiraj po udeležencih. GroupKFold teste interpretiraj raziskovalno, ker se učne množice foldov prekrivajo.
 
-Tipični izhodi so:
+## Gnezdena Optuna optimizacija
 
-- `.pt` kontrolne točke modelov;
-- `config_used.yaml`, kopija uporabljene konfiguracije;
-- CSV datoteke z metrikami po foldih;
-- poročila s povzetki validacije;
-- grafi učnih krivulj, matrik zamenjav, ROC krivulj in metrik po foldih;
-- `runtime.txt` z informacijami o času izvajanja.
+Pred LOSO končnim učenjem zaženi optimizacijo za vse štiri modele:
 
-## Validacija
+~~~powershell
+python -u src/train_eval/optimize_hyperparameters.py --model raw
+python -u src/train_eval/optimize_hyperparameters.py --model features1d
+python -u src/train_eval/optimize_hyperparameters.py --model features2d
+python -u src/train_eval/optimize_hyperparameters.py --model hybrid
+~~~
 
-Validacija je subjektno neodvisna: vse epohe istega subjekta ostanejo v istem razdelku.
+--trials N prepiše število poskusov. Optimizacija uporablja zunanji LOSO in notranji GroupKFold, maksimira uravnoteženo točnost in kaznuje nestabilnost med notranjimi foldi. Rezultati so v outputs/hyperparameter_optimization/<model>/: best_params_subject_<ID>.json, trials_subject_<ID>.json in nested_optimization_summary.json.
 
-- `GROUPKFOLD` razdeli subjekte v `n_splits` foldov.
-- `LOSO` uporabi Leave-One-Subject-Out pristop, kjer je v vsakem foldu en subjekt testni.
+Pomembno: trenutna implementacija optimizacije vedno filtrira skupino Caffeine. Parametre preberejo končne učne skripte samo pri LOSO; GROUPKFOLD uporablja config.yaml.
 
-Če je `validation.use_validation_subject` nastavljen na `true`, se validacijski subjekti izberejo samo iz učnega dela folda. To prepreči uhajanje informacij iz testnega subjekta v early stopping.
+## EDA in čiščenje
 
-## Standardizacija
+notebooks/exploration.ipynb vsebuje sestavo zbirke, kakovost signalov, kanale, reprezentativne epohe, časovne in spektralne prikaze. Slike so v notebooks/eda_figures/.
 
-Standardizacija se izvede znotraj vsakega folda:
+~~~powershell
+python src/utils/prune_output_folders.py --folder outputs/experiments --before 2026-08-01 --dry-run
+~~~
 
-- za značilke se povprečje in standardni odklon izračunata iz učnega dela;
-- za surovi EEG se standardizacija izvede po kanalih;
-- validacijski in testni podatki se transformirajo z učnimi statistikami.
+Za brisanje sta potrebna --delete in interaktivni vnos DELETE. Surove .mat in zlasti .npz datoteke so velike, zato gradnja in učenje zahtevata precej RAM-a in časa.
 
-S tem se zmanjša tveganje podatkovnega uhajanja med učenjem in vrednotenjem.
+## Podatkovna pogodba in zunanja predobdelava
 
-## Tipičen potek dela
+Repozitorij ne izvaja prvotne predobdelave EEG. Vhod mora biti MATLAB datoteka z objektom ALLEEG, katerega postavke imajo naslednja polja:
 
-1. Nastavi `config.yaml`, predvsem `data.data_path`, `experiment.analysis_type` in validacijsko metodo.
-2. Pripravi podatke:
+| Polje | Zahteva |
+| --- | --- |
+| data | številčno polje (kanali, časovne_točke, epohe) |
+| subject | skalarni identifikator udeleženca |
+| condition | Before ali After; primerjava ne razlikuje velikosti črk |
+| group | Caffeine ali Placebo |
 
-```powershell
-python src/train_eval/test_dataset_builders.py
-```
+Trenutna konfiguracija predpostavlja 600 Hz in 900 vzorcev na epoho, torej 1,5 s. Vrstni red kanalov se med gradnjo ohrani in mora biti enak za vse pogoje in udeležence. Koda ne preverja imen kanalov, montaže, referenciranja, filtrov ali odstranitve artefaktov; te odločitve je treba dokumentirati ob izvornih podatkih in uporabljati dosledno.
 
-3. Zaženi en model ali vse modele:
+Končna modelska filtracija pričakuje zapis skupin natanko Caffeine oziroma Placebo. Prazni podatkovni zapisi se preskočijo; manjkajoča ali drugače poimenovana polja povzročijo napako ali neveljavno zbirko.
 
-```powershell
-python src/train_eval/run_all_models.py
-```
+## Ponovljivost in omejitve
 
-4. Primerjaj rezultate:
+Za popolno tehnično ponovitev obdrži ali navedi:
 
-```powershell
-python src/train_eval/analyze_model_results.py
-```
+1. izvorno .mat datoteko oziroma njeno nedvoumno verzijo in vse korake predobdelave;
+2. uporabljeni config.yaml ter različico kode;
+3. zbirki v data/processed/ ali ukaz za njuno ponovno gradnjo;
+4. pri LOSO vse Optuna datoteke za štiri modele;
+5. celotno mapo pod outputs/experiments/.
 
-5. Preglej izhode v `outputs/results/`, `outputs/plots/` in `outputs/analysis/`.
+Vsak zaključen poskus shrani config_used.yaml, metrike, grafe, analizo in trajanja. Za primerjavo rezultatov uporabi konfiguracijo v mapi poskusa, ne samo trenutne korenske konfiguracije.
 
-## Opombe
+Metrike so na ravni epoh. Epohe istega udeleženca niso neodvisne opazke, zato povprečnih epoch-level metrik ne interpretiraj kot število neodvisnih oseb. LOSO je primernejši za sklepanje po udeležencih. GroupKFold p-vrednosti so raziskovalne, ker se učne množice foldov prekrivajo. Optuna optimizacija za LOSO je trenutno implementirana samo za skupino Caffeine; placebo ali združena analiza potrebujeta prilagoditev oziroma ločeno preverjeno optimizacijo.
 
-- Projekt predpostavlja, da `.mat` datoteka vsebuje ključ `ALLEEG`.
-- Trenutne skripte nimajo ukaznih argumentov; vse nastavitve se berejo iz `config.yaml`.
-- Pri večjih surovih `.mat` in `.npz` datotekah je pričakovana večja poraba RAM-a.
-- `outputs/` vsebuje generirane rezultate in se lahko hitro poveča.
+Projekt razvršča Before proti After in sam po sebi ne dokazuje vzročne spremembe zaradi kofeina. Pri interpretaciji upoštevaj predobdelavo, neravnotežje epoh, majhno število udeležencev in individualne razlike.
+
+## Strojne zahteve, zasebnost in arhiviranje
+
+CPU zadošča; training.device: auto izbere CUDA, kadar jo PyTorch zazna. Učenje surovega EEG in zlasti gnezdena optimizacija sta računsko zahtevna. Stisnjena surova zbirka je velika približno 391 MB, ob nalaganju in standardizaciji pa potrebuje več RAM-a kot na disku. Najprej preveri potek z enim modelom ali manj Optuna poskusi, dejanske čase pa preglej v experiment_timings/model_runtime_summary.csv.
+
+Surovi podatki niso v repozitoriju. Pred deljenjem .mat, .npz, kontrolnih točk ali izhodov preveri dovoljenja, soglasja, identifikatorje udeležencev in politiko hrambe ustanove. Za dolgoročni arhiv obdrži celotno mapo eksperimenta, pripadajoče Optuna rezultate in dokumentacijo predobdelave.

@@ -1,220 +1,197 @@
 # EEG caffeine input representation CNN
 
-This project tests different input representations of EEG signals for classifying the `Before` and `After` states in a caffeine/placebo experiment. The main goal is to compare models that work directly on raw EEG epochs, manually extracted EEG features, or a combination of both representations.
+This project compares four CNN architectures for binary classification of Before and After EEG epochs in a caffeine/placebo experiment: raw EEG, 1D features, 2D features, and a hybrid input. Participants remain separate across training, validation, and testing.
 
-## What The Project Includes
+The active configuration is version 1.0.1 in config.yaml. [CHANGES.md](CHANGES.md) records changes since the initial release: unified experiment folders, nested Optuna optimisation, reference classifiers, statistical tests, and expanded EDA.
 
-- data preparation from an EEGLAB/MATLAB `ALLEEG` structure;
-- creation of two `.npz` datasets:
-  - raw EEG: `(epochs, channels, timepoints)`;
-  - features: `(epochs, channels, features)`;
-- extraction of time-domain, frequency-domain, and entropy features;
-- training and evaluation of multiple CNN architectures;
-- subject-independent validation with `GROUPKFOLD` or `LOSO`;
-- saving metrics, predictions, models, configuration copies, and plots in `outputs/`.
+## Datasets and structure
 
-The currently processed datasets in `data/processed/` contain 3713 epochs, 32 EEG channels, and 19 subjects. The raw input has shape `(3713, 32, 900)`, while the feature input has shape `(3713, 32, 16)`.
+The current datasets in data/processed/ contain 3,713 epochs, 32 channels, and 19 participants:
 
-## Project Structure
+~~~
+raw_dataset.npz:     (3713, 32, 900)
+feature_dataset.npz: (3713, 32, 13)
+~~~
 
-```text
+experiment.analysis_type filters final analysis to Caffeine, Placebo, or both groups; the current setting uses Caffeine.
+
+~~~
 .
-|-- config.yaml
-|-- requirements.txt
-|-- data/
-|   |-- raw/                         # raw .mat files, not intended for commits
-|   |-- processed/                   # generated .npz datasets
-|   |-- build_raw_dataset.py
-|   |-- build_feature_dataset.py
-|   `-- load_dataset.py
-|-- notebooks/
-|   `-- exploration.ipynb
-|-- src/
-|   |-- feature_extraction/          # time, frequency, and entropy features
-|   |-- models/                      # CNN architectures
-|   |-- train_eval/                  # preparation, training, evaluation, plots
-|   `-- utils/
-`-- outputs/                         # experiment results
-```
+├── CHANGES.md
+├── config.yaml
+├── requirements.txt
+├── data/
+│   ├── raw/                         # input .mat files
+│   ├── processed/                   # generated .npz datasets
+│   ├── build_raw_dataset.py
+│   ├── build_feature_dataset.py
+│   └── load_dataset.py
+├── notebooks/
+│   ├── exploration.ipynb            # EDA
+│   └── eda_figures/
+├── src/
+│   ├── feature_extraction/
+│   ├── models/
+│   ├── train_eval/
+│   └── utils/
+└── outputs/
+    ├── experiments/
+    ├── hyperparameter_optimization/
+    └── archive/
+~~~
 
-The `.mat` and `.npz` files are listed in `.gitignore` because they are large or generated. To reproduce the experiments, the input `.mat` file must exist at the path configured in `config.yaml`.
+Large/generated .mat and .npz files are ignored by Git. The input at data.data_path must contain the ALLEEG key.
 
-## Environment Setup
+## Installation
 
-A Python virtual environment is recommended. The local environment in this project was created with Python 3.14, but the code uses the standard dependencies listed in `requirements.txt`.
+The local environment uses Python 3.14. Install requirements, including Optuna 4.x:
 
-```powershell
+~~~powershell
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+./.venv/Scripts/Activate.ps1
 pip install -r requirements.txt
-```
+~~~
 
-If PowerShell blocks environment activation, run:
+If PowerShell blocks activation:
 
-```powershell
+~~~powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
+~~~
 
-## Configuration
+## Configuration and data preparation
 
-The main settings are stored in `config.yaml`.
+config.yaml defines group selection, data paths, sampling rate, features, validation, Optuna settings, training, architectures, and outputs. The current default validation is five-fold GROUPKFOLD with two validation participants. With use_validation_subject: true, validation participants come only from a fold's training portion.
 
-Important fields:
-
-- `experiment.analysis_type` determines which data are used:
-  - `caffeine_before_vs_after` uses only the `Caffeine` group;
-  - `placebo_before_vs_after` uses only the `Placebo` group;
-  - `before_vs_after` uses all subjects.
-- `data.data_path` points to the input `.mat` file.
-- `data.raw_dataset_output` and `data.feature_dataset_output` define the output `.npz` files.
-- `features` defines the feature set and frequency bands.
-- `validation.method` supports `GROUPKFOLD` and `LOSO`.
-- `training` defines epochs, batch size, learning rate, early stopping, and device selection.
-- `model` contains hyperparameters for each architecture.
-- `outputs` defines directories for models, metrics, and plots.
-
-## Data Preparation
-
-Before training the models, prepare both datasets:
-
-```powershell
+~~~powershell
 python src/train_eval/test_dataset_builders.py
-```
+~~~
 
-The script:
-
-- reads `config.yaml`;
-- loads `ALLEEG` from `data.data_path`;
-- builds the raw EEG dataset;
-- builds the feature dataset;
-- checks that labels, subjects, conditions, and groups match between both datasets;
-- saves the results to `data/processed/raw_dataset.npz` and `data/processed/feature_dataset.npz`.
-
-The labels are binary:
-
-- `Before = 0`
-- `After = 1`
+The script loads ALLEEG, applies include_conditions and exclude_subjects, builds both datasets, verifies alignment of labels, participants, conditions, and groups, and saves them in data/processed/. Labels are Before = 0 and After = 1.
 
 ## Features
 
-For each channel and each epoch, the project can compute:
+The current feature input has 13 values per channel:
 
-- time-domain features: `mean`, `std`, `var`, `skewness`, `kurtosis`, `min`, `max`, `hjorth_activity`, `hjorth_mobility`, `hjorth_complexity`;
-- frequency-domain features: band power in `delta`, `theta`, `alpha`, `beta`, and `gamma`;
-- entropy feature: `spectral_entropy`.
+- time-domain: mean, std, skewness, kurtosis, min, max, hjorth_mobility, hjorth_complexity;
+- frequency-domain: log10 absolute power in theta (4–8 Hz), alpha (8–13 Hz), beta (13–30 Hz), and gamma (30–45 Hz);
+- entropy: spectral_entropy.
 
-With the current configuration, this gives 16 features per channel.
+Welch estimation for power and entropy uses the complete epoch: welch_nperseg: 900 at 600 Hz. Delta is excluded because 1.5-second epochs lack reliable resolution. Feature groups can be disabled in configuration.
 
-## Models
+## Models and leakage prevention
 
-The project compares four models:
+| Model | Source | Input |
+| --- | --- | --- |
+| EEGNetLike | src/models/cnn_eegnetlike.py | (batch, 1, channels, timepoints) |
+| CNNFeatures1D | src/models/cnn_features_1d.py | (batch, channels, features) |
+| CNNFeatures2D | src/models/cnn_features_2d.py | (batch, 1, channels, features) |
+| CNNHybrid | src/models/cnn_hybrid.py | raw EEG and features |
 
-- `EEGNetLike` in `src/models/cnn_eegnetlike.py` uses raw EEG epochs with shape `(batch, 1, channels, timepoints)`;
-- `CNNFeatures1D` in `src/models/cnn_features_1d.py` uses features with shape `(batch, channels, features)`;
-- `CNNFeatures2D` in `src/models/cnn_features_2d.py` uses features as a 2D input with shape `(batch, 1, channels, features)`;
-- `CNNHybrid` in `src/models/cnn_hybrid.py` combines the raw EEG input and the feature input.
+Models return two-class logits and use CrossEntropyLoss with optional label_smoothing; training scripts print total and trainable parameter counts.
 
-All models use PyTorch and return logits for two classes.
+LOSO leaves one participant out for testing in every fold; GROUPKFOLD partitions participants into n_splits groups. Within every fold, validation participants come from training participants. Features are standardised by channel and feature, raw EEG per channel over training epochs and timepoints, and validation/test use training statistics only. project.random_seed seeds Python, NumPy, and PyTorch and enables deterministic CUDA settings when available.
 
-## Running Experiments
+## Running and outputs
 
-You can run individual models with:
+Run a complete experiment:
 
-```powershell
+~~~powershell
+python src/train_eval/run_all_models.py
+~~~
+
+It creates outputs/experiments/<timestamp>_<VALIDATION>_nvalsubj<N>/, trains all four models, then automatically runs comparison analysis and statistical tests. On failure it stops. experiment_timings/model_runtime_summary.csv records status and duration of all executed stages.
+
+Run a single model:
+
+~~~powershell
 python src/train_eval/run_cnn_eegnetlike.py
 python src/train_eval/run_cnn_features1d.py
 python src/train_eval/run_cnn_features2d.py
 python src/train_eval/run_cnn_hybrid.py
-```
+~~~
 
-To run all models sequentially:
+Standalone runs create a separate folder. Run post-processing manually:
 
-```powershell
-python src/train_eval/run_all_models.py
-```
-
-This script measures the runtime of each model and saves the summary in:
-
-```text
-outputs/experiment_timings/
-```
-
-If any model fails, the sequential run stops to avoid wasting time on further experiments.
-
-## Result Analysis
-
-After running the models, compare the latest results across all models with:
-
-```powershell
+~~~powershell
 python src/train_eval/analyze_model_results.py
-```
+python src/train_eval/run_statistical_tests.py
+~~~
 
-The script reads the latest result directories for each model, computes metric summaries, and saves comparison tables and plots in `outputs/analysis/`.
+Manual scripts locate the newest complete results in outputs/results; when called by run_all_models.py, they use the active shared folder.
 
-## Outputs
+~~~
+outputs/experiments/<timestamp>_<VALIDATION>_nvalsubj<N>/
+├── config_used.yaml
+├── models/<model>/                  # .pt checkpoints
+├── results/<model>/                 # CSV metrics, summaries, runtime
+├── plots/<model>/                   # learning curves, ROC, confusion matrices
+├── analysis/                        # model comparison
+├── statistical_tests/               # baselines and tests
+└── experiment_timings/
+~~~
 
-Each model run creates timestamped directories:
+Fold metrics include test/validation participants, best epoch, best train/validation values, epoch_accuracy, epoch_precision, epoch_recall, epoch_f1, and epoch_roc_auc. analysis provides all_model_fold_results.csv, model_comparison_summary.csv, used configurations, and accuracy, F1, and ROC-AUC plots in fixed order: Raw EEGNet-like, Features1D, Features2D, Hybrid.
 
-```text
-outputs/models/<model_name>_<timestamp>/
-outputs/results/<model_name>_<timestamp>/
-outputs/plots/<model_name>_<timestamp>/
-```
+statistical_tests provides always Before and always After baselines plus two-sided exact sign-flip tests: each model versus chance accuracy 0.5 and all model pairs for epoch_accuracy and epoch_f1. Interpret LOSO tests by participant. Treat GroupKFold tests as exploratory because training sets overlap.
 
-Typical outputs include:
+## Nested Optuna optimisation
 
-- `.pt` model checkpoints;
-- `config_used.yaml`, a copy of the configuration used for the run;
-- CSV files with fold-level metrics;
-- validation summary reports;
-- plots of training curves, confusion matrices, ROC curves, and fold-level metrics;
-- `runtime.txt` with runtime information.
+Before final LOSO training, optimise all four models:
 
-## Validation
+~~~powershell
+python -u src/train_eval/optimize_hyperparameters.py --model raw
+python -u src/train_eval/optimize_hyperparameters.py --model features1d
+python -u src/train_eval/optimize_hyperparameters.py --model features2d
+python -u src/train_eval/optimize_hyperparameters.py --model hybrid
+~~~
 
-Validation is subject-independent: all epochs from the same subject remain in the same split.
+--trials N overrides the trial count. Optimisation uses outer LOSO and inner GroupKFold, maximises balanced accuracy, and penalises instability across inner folds. Results are saved in outputs/hyperparameter_optimization/<model>/: best_params_subject_<ID>.json, trials_subject_<ID>.json, and nested_optimization_summary.json.
 
-- `GROUPKFOLD` splits subjects into `n_splits` folds.
-- `LOSO` uses Leave-One-Subject-Out validation, where one subject is used as the test subject in each fold.
+Important: the current optimiser always filters to Caffeine. Final scripts read its parameters only under LOSO; GROUPKFOLD uses config.yaml.
 
-If `validation.use_validation_subject` is set to `true`, validation subjects are selected only from the training portion of the fold. This prevents information from the test subject from leaking into early stopping.
+## EDA and cleanup
 
-## Standardization
+notebooks/exploration.ipynb covers dataset composition, signal quality, channels, representative epochs, and time/frequency views. Figures are in notebooks/eda_figures/.
 
-Standardization is performed inside each fold:
+~~~powershell
+python src/utils/prune_output_folders.py --folder outputs/experiments --before 2026-08-01 --dry-run
+~~~
 
-- for features, the mean and standard deviation are computed from the training split;
-- for raw EEG, standardization is performed per channel;
-- validation and test data are transformed using training statistics.
+Deletion requires --delete and interactive DELETE confirmation. Raw .mat and especially .npz files are large, so building and training require substantial RAM and time.
 
-This reduces the risk of data leakage between training and evaluation.
+## Data contract and external preprocessing
 
-## Typical Workflow
+This repository does not perform the original EEG preprocessing. The input must be a MATLAB file containing ALLEEG, whose entries have these fields:
 
-1. Configure `config.yaml`, especially `data.data_path`, `experiment.analysis_type`, and the validation method.
-2. Prepare the datasets:
+| Field | Requirement |
+| --- | --- |
+| data | numeric array (channels, timepoints, epochs) |
+| subject | scalar participant identifier |
+| condition | Before or After; matching is case-insensitive |
+| group | Caffeine or Placebo |
 
-```powershell
-python src/train_eval/test_dataset_builders.py
-```
+The current configuration assumes 600 Hz and 900 samples per epoch, i.e. 1.5 seconds. Channel order is retained during construction and must be identical for all conditions and participants. The code does not validate channel names, montage, referencing, filtering, or artefact removal; document these choices with the source data and apply them consistently.
 
-3. Run one model or all models:
+Final model filtering expects group values written exactly as Caffeine and Placebo. Empty data entries are skipped; missing or differently named fields cause an error or an invalid dataset.
 
-```powershell
-python src/train_eval/run_all_models.py
-```
+## Reproducibility and limitations
 
-4. Compare results:
+For complete technical reproduction, preserve or report:
 
-```powershell
-python src/train_eval/analyze_model_results.py
-```
+1. the source .mat file (or an unambiguous version) and every preprocessing step;
+2. the exact config.yaml and code version;
+3. datasets in data/processed/, or the command used to rebuild them;
+4. all four Optuna result sets when using LOSO;
+5. the complete directory under outputs/experiments/.
 
-5. Inspect the outputs in `outputs/results/`, `outputs/plots/`, and `outputs/analysis/`.
+Every completed experiment saves config_used.yaml, metrics, plots, analysis, and timings. Compare results with the configuration inside the experiment folder, not only the current root configuration.
 
-## Notes
+Metrics are calculated at epoch level. Epochs from one participant are not independent observations, so mean epoch-level scores must not be interpreted as independent-person counts. LOSO is more suitable for participant-level inference. GroupKFold p-values are exploratory because fold training sets overlap. LOSO Optuna optimisation is currently implemented for Caffeine only; placebo or pooled analysis needs adaptation or separately validated optimisation.
 
-- The project assumes that the `.mat` file contains the key `ALLEEG`.
-- The current scripts do not use command-line arguments; all settings are read from `config.yaml`.
-- Large raw `.mat` and `.npz` files may require substantial RAM.
-- `outputs/` contains generated results and can grow quickly.
+The project classifies Before versus After and does not itself establish a causal caffeine effect. Consider preprocessing, epoch imbalance, small participant count, and individual differences when interpreting results.
+
+## Compute, privacy, and archiving
+
+A CPU is sufficient; training.device: auto selects CUDA when PyTorch detects it. Raw-EEG training and especially nested optimisation are computationally demanding. The compressed raw dataset is about 391 MB, while loading and standardisation require more RAM than its on-disk size. First validate the workflow with one model or fewer Optuna trials, then inspect actual timings in experiment_timings/model_runtime_summary.csv.
+
+Raw data are not included in the repository. Before sharing .mat files, .npz datasets, checkpoints, or outputs, check permissions, participant consent, identifiers, and the institution's retention policy. For long-term archival, retain a complete experiment directory, its Optuna results, and preprocessing documentation.

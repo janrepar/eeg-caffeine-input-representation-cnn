@@ -16,6 +16,7 @@ from src.train_eval.train import train_model
 from src.train_eval.evaluate import (predict_multiclass_model, compute_binary_metrics)
 from src.train_eval.common import (load_dataset_npz, get_device, create_experiment_output_dirs, print_metric_summary, summarize_metric_list, save_fold_metrics_csv, save_loso_summary_report, save_config_copy, save_model_checkpoint,standardize_features_train_val_test, set_random_seed, print_model_parameter_count)
 from src.train_eval.visualizations import ( plot_training_history, plot_training_history_by_iteration, save_confusion_matrix_plot, plot_metric_by_fold, plot_epoch_metrics_summary, plot_roc_curve_for_fold, plot_all_folds_roc_curve, save_final_confusion_matrix, plot_loso_performance_summary,)
+from src.train_eval.hyperparameters import (apply_hyperparameters, load_groupkfold_loso_aggregate, write_hyperparameter_manifest)
 from src.utils.helpers import load_config
 
 
@@ -125,9 +126,20 @@ def main():
     n_channels = X_feat.shape[1]
     n_features = X_feat.shape[2]
 
-    training_config = config["training"]
-    model_config = config["model"]["features_1d_model"]
+    base_training_config = config["training"]
+    base_model_config = config["model"]["features_1d_model"]
     outputs_config = config["outputs"]
+
+    groupkfold_params = {}
+    groupkfold_aggregate = None
+    if validation_method == "GROUPKFOLD":
+        parameter_source = config.get("hyperparameter_optimization", {}).get("groupkfold_parameter_source")
+        if parameter_source != "loso_aggregate":
+            raise ValueError(f"Unsupported GroupKFold hyperparameter source: {parameter_source}")
+        groupkfold_params, metadata, artifact_path = load_groupkfold_loso_aggregate(config, "features1d")
+        groupkfold_aggregate = {"artifact_path": str(artifact_path), "best_params": groupkfold_params, **metadata}
+        print(f"GroupKFold hyperparameter source: LOSO Optuna aggregate ({artifact_path})")
+        print(f"GroupKFold effective HPO parameters: {json.dumps(groupkfold_params, sort_keys=True)}")
 
     validation_seed = config["validation"].get(
         "validation_seed",
@@ -137,8 +149,8 @@ def main():
     use_validation_subject = config["validation"].get("use_validation_subject", True)
     n_validation_subjects = config["validation"].get("n_validation_subjects", 1)
 
-    early_stopping_metric = training_config.get("early_stopping_metric", "val_loss")
-    label_smoothing = training_config.get("label_smoothing", 0.0)
+    early_stopping_metric = base_training_config.get("early_stopping_metric", "val_loss")
+    label_smoothing = base_training_config.get("label_smoothing", 0.0)
 
     print(f"Validation subjects per fold: {n_validation_subjects}")
     print(f"Early stopping metric: {early_stopping_metric}")
@@ -168,6 +180,7 @@ def main():
 
     train_accuracies_for_summary = []
     test_accuracies_for_summary = []
+    fold_hyperparameters = []
 
     for fold_idx, split in enumerate(splits, start=1):
         if "test_subjects" in split:
@@ -180,6 +193,14 @@ def main():
         print("\n" + "=" * 80)
         print(f"Fold {fold_idx}/{len(splits)} | Test subjects: {test_subjects}")
         print("=" * 80)
+
+        model_config, training_config = apply_hyperparameters(
+            base_model_config, base_training_config, groupkfold_params
+        )
+        hyperparameter_source = "LOSO Optuna aggregate" if validation_method == "GROUPKFOLD" else "config.yaml"
+        hyperparameter_source_path = (
+            groupkfold_aggregate["artifact_path"] if groupkfold_aggregate is not None else None
+        )
 
         if use_validation_subject:
             train_mask, val_mask, val_subjects = create_train_val_split_by_subject(
@@ -237,9 +258,12 @@ def main():
                 raise FileNotFoundError(f"Missing Optuna parameters for test subject {test_subject_label}: {hpo_path}")
             with open(hpo_path, encoding="utf-8") as hpo_file:
                 optimized_params = json.load(hpo_file)["best_params"]
-            model_config.update({key: value for key, value in optimized_params.items() if key not in {"learning_rate", "weight_decay"}})
-            training_config.update({key: value for key, value in optimized_params.items() if key in {"learning_rate", "weight_decay", "label_smoothing"}})
-            label_smoothing = training_config.get("label_smoothing", 0.0)
+            model_config, training_config = apply_hyperparameters(
+                base_model_config, base_training_config, optimized_params
+            )
+            hyperparameter_source = "LOSO Optuna fold-specific"
+            hyperparameter_source_path = str(hpo_path)
+        label_smoothing = training_config.get("label_smoothing", 0.0)
         model = CNNFeatures1D(
             n_channels=n_channels,
             n_features=n_features,
@@ -357,6 +381,19 @@ def main():
             "epoch_f1": epoch_metrics["f1"],
             "epoch_roc_auc": epoch_metrics.get("roc_auc", np.nan)
         })
+
+        fold_hyperparameters.append({
+            "fold": fold_idx,
+            "test_subjects": [str(subject) for subject in test_subjects],
+            "validation_subjects": [str(subject) for subject in val_subjects],
+            "parameter_source": hyperparameter_source,
+            "parameter_source_path": hyperparameter_source_path,
+            "model_config": model_config,
+            "training_config": training_config,
+        })
+        write_hyperparameter_manifest(
+            results_dir, "features1d_cnn", validation_method, fold_hyperparameters, groupkfold_aggregate
+        )
 
         if outputs_config.get("save_models", True):
             model_path = models_dir / f"features1d_cnn_fold_{fold_idx}_subjects_{test_subject_label}.pt"

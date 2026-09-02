@@ -1,0 +1,240 @@
+{
+  "model_name": "hybrid_cnn",
+  "validation_method": "GROUPKFOLD",
+  "folds": [
+    {
+      "fold": 1,
+      "test_subjects": [
+        "315",
+        "999"
+      ],
+      "validation_subjects": [
+        "401",
+        "368"
+      ],
+      "parameter_source": "LOSO Optuna aggregate",
+      "parameter_source_path": "outputs\\hyperparameter_optimization\\hybrid\\global_params_from_loso.json",
+      "model_config": {
+        "name": "HybridEEGFeatureCNN",
+        "dropout": 0.47070248769740336,
+        "raw_temporal_filters": 8,
+        "raw_kernel_size": 300,
+        "raw_pool_size": 16,
+        "feature_conv1_filters": 16,
+        "feature_conv2_filters": 32,
+        "feature_kernel_size_1": 3,
+        "feature_kernel_size_2": 3,
+        "raw_embedding_units": 32,
+        "feature_embedding_units": 16,
+        "fusion_hidden_units": 16
+      },
+      "training_config": {
+        "epochs": 500,
+        "batch_size": 32,
+        "learning_rate": 0.00010217822278889445,
+        "weight_decay": 0.0003499260478615285,
+        "patience": 75,
+        "validation_frequency": 30,
+        "device": "auto",
+        "early_stopping_metric": "val_loss",
+        "label_smoothing": 0.032385943778526424
+      }
+    },
+    {
+      "fold": 2,
+      "test_subjects": [
+        "421",
+        "463"
+      ],
+      "validation_subjects": [
+        "368",
+        "315"
+      ],
+      "parameter_source": "LOSO Optuna aggregate",
+      "parameter_source_path": "outputs\\hyperparameter_optimization\\hybrid\\global_params_from_loso.json",
+      "model_config": {
+        "name": "HybridEEGFeatureCNN",
+        "dropout": 0.47070248769740336,
+        "raw_temporal_filters": 8,
+        "raw_kernel_size": 300,
+        "raw_pool_size": 16,
+        "feature_conv1_filters": 16,
+        "feature_conv2_filters": 32,
+        "feature_kernel_size_1": 3,
+        "feature_kernel_size_2": 3,
+        "raw_embedding_units": 32,
+        "feature_embedding_units": 16,
+        "fusion_hidden_units": 16
+      },
+      "training_config": {
+        "epochs": 500,
+        "batch_size": 32,
+        "learning_rate": 0.00010217822278889445,
+        "weight_decay": 0.0003499260478615285,
+        "patience": 75,
+        "validation_frequency": 30,
+        "device": "auto",
+        "early_stopping_metric": "val_loss",
+        "label_smoothing": 0.032385943778526424
+      }
+    },
+    {
+      "fold": 3,
+      "test_subjects": [
+        "346",
+        "444"
+      ],
+      "validation_subjects": [
+        "463",
+        "401"
+      ],
+      "parameter_source": "LOSO Optuna aggregate",
+      "parameter_source_path": "outputs\\hyperparameter_optimization\\hybrid\\global_params_from_loso.json",
+      "model_config": {
+        "name": "HybridEEGFeatureCNN",
+        "dropout": 0.47070248769740336,
+        "raw_temporal_filters": 8,
+        "raw_kernel_size": 300,
+        "raw_pool_size": 16,
+        "feature_conv1_filters": 16,
+        "feature_conv2_filters": 32,
+        "feature_kernel_size_1": 3,
+        "feature_kernel_size_2": 3,
+        "raw_embedding_units": 32,
+        "feature_embedding_units": 16,
+        "fusion_hidden_units": 16
+      },
+      "training_config": {
+        "epochs": 500,
+        "batch_size": 32,
+        "learning_rate": 0.00010217822278889445,
+        "weight_decay": 0.0003499260478615285,
+        "patience": 75,
+        "validation_frequency": 30,
+        "device": "auto",
+        "early_stopping_metric": "val_loss",
+        "label_smoothing": 0.032385943778526424
+      }
+    },
+    {
+      "fold": 4,
+      "test_subjects": [
+        "311",
+        "342"
+      ],
+      "validation_subjects": [
+        "999",
+        "401"
+      ],
+      "parameter_source": "LOSO Optuna aggregate",
+      "parameter_source_path": "outputs\\hyperparameter_optimization\\hybrid\\global_params_from_loso.json",
+      "model_config": {
+        "name": "HybridEEGFeatureCNN",
+        "dropout": 0.47070248769740336,
+        "raw_temporal_filters": 8,
+        "raw_kernel_size": 300,
+        "raw_pool_size": 16,
+        "feature_conv1_filters": 16,
+        "feature_conv2_filters": 32,
+        "feature_kernel_size_1": 3,
+        "feature_kernel_size_2": 3,
+        "raw_embedding_units": 32,
+        "feature_embedding_units": 16,
+        "fusion_hidden_units": 16
+      },
+      "training_config": {
+        "epochs": 500,
+        "batch_size": 32,
+        "learning_rate": 0.00010217822278889445,
+        "weight_decay": 0.0003499260478615285,
+        "patience": 75,
+        "validation_frequency": 30,
+        "device": "auto",
+        "early_stopping_metric": "val_loss",
+        "label_smoothing": 0.032385943778526424
+      }
+    },
+    {
+      "fold": 5,
+      "test_subjects": [
+        "340",
+        "368",
+        "401"
+      ],
+      "validation_subjects": [
+        "311",
+        "444"
+      ],
+      "parameter_source": "LOSO Optuna aggregate",
+      "parameter_source_path": "outputs\\hyperparameter_optimization\\hybrid\\global_params_from_loso.json",
+      "model_config": {
+        "name": "HybridEEGFeatureCNN",
+        "dropout": 0.47070248769740336,
+        "raw_temporal_filters": 8,
+        "raw_kernel_size": 300,
+        "raw_pool_size": 16,
+        "feature_conv1_filters": 16,
+        "feature_conv2_filters": 32,
+        "feature_kernel_size_1": 3,
+        "feature_kernel_size_2": 3,
+        "raw_embedding_units": 32,
+        "feature_embedding_units": 16,
+        "fusion_hidden_units": 16
+      },
+      "training_config": {
+        "epochs": 500,
+        "batch_size": 32,
+        "learning_rate": 0.00010217822278889445,
+        "weight_decay": 0.0003499260478615285,
+        "patience": 75,
+        "validation_frequency": 30,
+        "device": "auto",
+        "early_stopping_metric": "val_loss",
+        "label_smoothing": 0.032385943778526424
+      }
+    }
+  ],
+  "groupkfold_loso_aggregate": {
+    "artifact_path": "outputs\\hyperparameter_optimization\\hybrid\\global_params_from_loso.json",
+    "best_params": {
+      "dropout": 0.47070248769740336,
+      "feature_conv1_filters": 16,
+      "feature_conv2_filters": 32,
+      "feature_embedding_units": 16,
+      "fusion_hidden_units": 16,
+      "label_smoothing": 0.032385943778526424,
+      "learning_rate": 0.00010217822278889445,
+      "raw_embedding_units": 32,
+      "raw_temporal_filters": 8,
+      "weight_decay": 0.0003499260478615285
+    },
+    "source_summary": "outputs\\hyperparameter_optimization\\hybrid\\nested_optimization_summary.json",
+    "n_loso_folds": 11,
+    "outer_test_subjects": [
+      "311",
+      "315",
+      "340",
+      "342",
+      "346",
+      "368",
+      "401",
+      "421",
+      "444",
+      "463",
+      "999"
+    ],
+    "aggregation_by_parameter": {
+      "dropout": "median",
+      "feature_conv1_filters": "mode",
+      "feature_conv2_filters": "mode",
+      "feature_embedding_units": "mode",
+      "fusion_hidden_units": "mode",
+      "label_smoothing": "median",
+      "learning_rate": "median",
+      "raw_embedding_units": "mode",
+      "raw_temporal_filters": "mode",
+      "weight_decay": "median"
+    },
+    "aggregation_rule": "median for continuous parameters; mode for integer/categorical parameters"
+  }
+}
