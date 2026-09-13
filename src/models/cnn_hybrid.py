@@ -41,7 +41,7 @@ class CNNHybrid(nn.Module):
                 in_channels=1,
                 out_channels=raw_temporal_filters,
                 kernel_size=(1, raw_kernel_size),
-                padding=(0, raw_kernel_size // 2),
+                padding="same",
                 bias=False,
             ),
             nn.BatchNorm2d(raw_temporal_filters),

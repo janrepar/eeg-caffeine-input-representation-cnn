@@ -117,7 +117,12 @@ python src/train_eval/analyze_model_results.py
 python src/train_eval/run_statistical_tests.py
 ~~~
 
-Manual scripts locate the newest complete results in outputs/results; when called by run_all_models.py, they use the active shared folder.
+Without an argument, manual scripts select the newest complete experiment in outputs/experiments/. To select one exact experiment, pass --experiment-dir:
+
+~~~powershell
+python src/train_eval/analyze_model_results.py --experiment-dir outputs/experiments/<timestamp>_<VALIDATION>_nvalsubj<N>
+python src/train_eval/run_statistical_tests.py --experiment-dir outputs/experiments/<timestamp>_<VALIDATION>_nvalsubj<N>
+~~~
 
 ~~~
 outputs/experiments/<timestamp>_<VALIDATION>_nvalsubj<N>/
@@ -130,9 +135,9 @@ outputs/experiments/<timestamp>_<VALIDATION>_nvalsubj<N>/
 └── experiment_timings/
 ~~~
 
-Fold metrics include test/validation participants, best epoch, best train/validation values, epoch_accuracy, epoch_precision, epoch_recall, epoch_f1, and epoch_roc_auc. analysis provides all_model_fold_results.csv, model_comparison_summary.csv, used configurations, and accuracy, F1, and ROC-AUC plots in fixed order: Raw EEGNet-like, Features1D, Features2D, Hybrid.
+Fold metrics include test/validation participants, best epoch, best train/validation values, epoch_accuracy, epoch_precision, epoch_recall, epoch_f1, and epoch_roc_auc. They also persist the four confusion-matrix cells; with save_predictions: true, epoch predictions are written to results/<model>/predictions/. analysis provides all_model_fold_results.csv, model_comparison_summary.csv, used configurations, and accuracy, F1, and ROC-AUC plots in fixed order: Raw EEGNet-like, Features1D, Features2D, Hybrid.
 
-statistical_tests provides always Before and always After baselines plus two-sided exact sign-flip tests: each model versus chance accuracy 0.5 and all model pairs for epoch_accuracy and epoch_f1. Interpret LOSO tests by participant. Treat GroupKFold tests as exploratory because training sets overlap.
+statistical_tests provides always Before and always After baselines plus two-sided exact sign-flip tests: each model versus chance accuracy 0.5 and all model pairs for epoch_accuracy and epoch_f1. It stores unadjusted p_value_two_sided and Bonferroni-adjusted p_value_bonferroni; the correction uses m = 4 for the four planned model comparisons. Interpret LOSO tests by participant. Treat GroupKFold tests as exploratory because training sets overlap.
 
 ## Nested Optuna optimisation
 
@@ -147,7 +152,7 @@ python -u src/train_eval/optimize_hyperparameters.py --model hybrid
 
 --trials N overrides the trial count. Optimisation uses outer LOSO and inner GroupKFold, maximises balanced accuracy, and penalises instability across inner folds. Results are saved in outputs/hyperparameter_optimization/<model>/: best_params_subject_<ID>.json, trials_subject_<ID>.json, and nested_optimization_summary.json.
 
-Important: the current optimiser always filters to Caffeine. Final scripts read its parameters only under LOSO; GROUPKFOLD uses config.yaml.
+Important: the current optimiser always filters to Caffeine. LOSO uses fold-specific Optuna parameters. GROUPKFOLD uses one fixed global configuration aggregated from LOSO optima: median for continuous and mode for discrete/categorical parameters. global_params_from_loso.json and fold_hyperparameters.json record the settings used.
 
 ## EDA and cleanup
 
@@ -172,7 +177,7 @@ This repository does not perform the original EEG preprocessing. The input must 
 
 The current configuration assumes 600 Hz and 900 samples per epoch, i.e. 1.5 seconds. Channel order is retained during construction and must be identical for all conditions and participants. The code does not validate channel names, montage, referencing, filtering, or artefact removal; document these choices with the source data and apply them consistently.
 
-Final model filtering expects group values written exactly as Caffeine and Placebo. Empty data entries are skipped; missing or differently named fields cause an error or an invalid dataset.
+Final model filtering compares the Caffeine and Placebo group values case-insensitively. Empty data entries are skipped; missing or differently named fields cause an error or an invalid dataset.
 
 ## Reproducibility and limitations
 

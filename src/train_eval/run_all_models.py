@@ -1,3 +1,4 @@
+import argparse
 import csv
 import os
 import subprocess
@@ -42,14 +43,32 @@ def run_command(command, stage_name, environment):
     }
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Train all models and run the selected post-processing steps."
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the planned stages without creating an experiment or running training.",
+    )
+    parser.add_argument(
+        "--skip-analysis",
+        action="store_true",
+        help="Skip model-comparison analysis after all models finish.",
+    )
+    parser.add_argument(
+        "--skip-statistical-tests",
+        action="store_true",
+        help="Skip statistical tests after all models finish.",
+    )
+    return parser.parse_args()
+
+
 def main():
     """Run all models and their shared post-processing in one experiment folder."""
+    args = parse_args()
     config = load_config("config.yaml")
-    experiment_dir = create_experiment_root(config).resolve()
-    environment = os.environ.copy()
-    environment[EXPERIMENT_DIR_ENV] = str(experiment_dir)
-
-    print(f"Experiment directory: {experiment_dir}")
     python = sys.executable
     stages = [
         ("Raw EEGNet-like CNN", "src/train_eval/run_cnn_eegnetlike.py"),
@@ -57,6 +76,24 @@ def main():
         ("Features2D CNN", "src/train_eval/run_cnn_features2d.py"),
         ("Hybrid Raw + Features CNN", "src/train_eval/run_cnn_hybrid.py"),
     ]
+
+    post_processing_stages = []
+    if not args.skip_analysis:
+        post_processing_stages.append(("Model comparison analysis", "src/train_eval/analyze_model_results.py"))
+    if not args.skip_statistical_tests:
+        post_processing_stages.append(("Statistical tests", "src/train_eval/run_statistical_tests.py"))
+
+    if args.dry_run:
+        print("Dry run: no experiment directory or outputs will be created.")
+        for stage_name, script in stages + post_processing_stages:
+            print(f"- {stage_name}: {python} {script}")
+        return
+
+    experiment_dir = create_experiment_root(config).resolve()
+    environment = os.environ.copy()
+    environment[EXPERIMENT_DIR_ENV] = str(experiment_dir)
+
+    print(f"Experiment directory: {experiment_dir}")
     rows = []
     started = time.perf_counter()
 
@@ -72,10 +109,7 @@ def main():
             print("Stopping because a model stage failed.")
             break
     else:
-        for stage_name, script in [
-            ("Model comparison analysis", "src/train_eval/analyze_model_results.py"),
-            ("Statistical tests", "src/train_eval/run_statistical_tests.py"),
-        ]:
+        for stage_name, script in post_processing_stages:
             row = run_command([python, script], stage_name, environment)
             rows.append(row)
             if row["status"] != "SUCCESS":

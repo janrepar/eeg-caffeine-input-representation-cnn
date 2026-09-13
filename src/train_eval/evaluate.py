@@ -10,8 +10,8 @@ def predict_binary_model(model, X, device):
     """
     Predicts probabilities and class labels for binary classification.
 
-    Model returns logits.
-    This function applies sigmoid.
+    Model returns two-class logits.
+    This function applies softmax and returns the probability of After.
 
     Returns
     -------
@@ -24,8 +24,9 @@ def predict_binary_model(model, X, device):
     X = X.to(device)
     logits = model(X)
 
-    probs = torch.sigmoid(logits).cpu().numpy()
-    preds = (probs >= 0.5).astype(int)
+    probabilities = torch.softmax(logits, dim=1).cpu().numpy()
+    probs = probabilities[:, 1]
+    preds = np.argmax(probabilities, axis=1)
 
     return probs, preds
 

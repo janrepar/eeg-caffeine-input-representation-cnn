@@ -117,7 +117,12 @@ python src/train_eval/analyze_model_results.py
 python src/train_eval/run_statistical_tests.py
 ~~~
 
-Ročni skripti poiščeta najnovejše popolne rezultate v outputs/results; v poteku run_all_models.py uporabita skupno aktivno mapo.
+Ročni skripti brez parametra samodejno izbereta najnovejši popoln poskus v outputs/experiments/. Za točno določen poskus podaj --experiment-dir:
+
+~~~powershell
+python src/train_eval/analyze_model_results.py --experiment-dir outputs/experiments/<čas>_<VALIDACIJA>_nvalsubj<N>
+python src/train_eval/run_statistical_tests.py --experiment-dir outputs/experiments/<čas>_<VALIDACIJA>_nvalsubj<N>
+~~~
 
 ~~~
 outputs/experiments/<čas>_<VALIDACIJA>_nvalsubj<N>/
@@ -130,9 +135,9 @@ outputs/experiments/<čas>_<VALIDACIJA>_nvalsubj<N>/
 └── experiment_timings/
 ~~~
 
-Metrike po foldih vključujejo testne/validacijske udeležence, najboljšo epoho, najboljše učne/validacijske vrednosti ter epoch_accuracy, epoch_precision, epoch_recall, epoch_f1 in epoch_roc_auc. analysis vsebuje all_model_fold_results.csv, model_comparison_summary.csv, uporabljene konfiguracije in primerjalne grafe za točnost, F1 in ROC-AUC; vrstni red je Raw EEGNet-like, Features1D, Features2D, Hybrid.
+Metrike po foldih vključujejo testne/validacijske udeležence, najboljšo epoho, najboljše učne/validacijske vrednosti ter epoch_accuracy, epoch_precision, epoch_recall, epoch_f1 in epoch_roc_auc. Vsebujejo tudi štiri celice matrike zmot; pri save_predictions: true se shranijo še napovedi po epohah v results/<model>/predictions/. analysis vsebuje all_model_fold_results.csv, model_comparison_summary.csv, uporabljene konfiguracije in primerjalne grafe za točnost, F1 in ROC-AUC; vrstni red je Raw EEGNet-like, Features1D, Features2D, Hybrid.
 
-statistical_tests vsebuje klasifikatorja vedno Before in vedno After ter dvostranske natančne sign-flip teste: vsak model proti naključni točnosti 0,5 in vsi pari modelov za epoch_accuracy in epoch_f1. LOSO teste interpretiraj po udeležencih. GroupKFold teste interpretiraj raziskovalno, ker se učne množice foldov prekrivajo.
+statistical_tests vsebuje klasifikatorja vedno Before in vedno After ter dvostranske natančne sign-flip teste: vsak model proti naključni točnosti 0,5 in vsi pari modelov za epoch_accuracy in epoch_f1. Shranjeni sta nepopravljena p_value_two_sided in Bonferronijevo korigirana p_value_bonferroni; popravek uporablja m = 4 za štiri načrtovane primerjave modelov. LOSO teste interpretiraj po udeležencih. GroupKFold teste interpretiraj raziskovalno, ker se učne množice foldov prekrivajo.
 
 ## Gnezdena Optuna optimizacija
 
@@ -147,7 +152,7 @@ python -u src/train_eval/optimize_hyperparameters.py --model hybrid
 
 --trials N prepiše število poskusov. Optimizacija uporablja zunanji LOSO in notranji GroupKFold, maksimira uravnoteženo točnost in kaznuje nestabilnost med notranjimi foldi. Rezultati so v outputs/hyperparameter_optimization/<model>/: best_params_subject_<ID>.json, trials_subject_<ID>.json in nested_optimization_summary.json.
 
-Pomembno: trenutna implementacija optimizacije vedno filtrira skupino Caffeine. Parametre preberejo končne učne skripte samo pri LOSO; GROUPKFOLD uporablja config.yaml.
+Pomembno: trenutna implementacija optimizacije vedno filtrira skupino Caffeine. LOSO uporabi fold-specifične Optuna parametre. GROUPKFOLD uporablja eno nespremenljivo globalno konfiguracijo, agregirano iz LOSO optimumov: mediano za zvezne in modus za diskretne oziroma kategorične parametre. Artefakta global_params_from_loso.json in fold_hyperparameters.json zabeležita uporabljene nastavitve.
 
 ## EDA in čiščenje
 
@@ -172,7 +177,7 @@ Repozitorij ne izvaja prvotne predobdelave EEG. Vhod mora biti MATLAB datoteka z
 
 Trenutna konfiguracija predpostavlja 600 Hz in 900 vzorcev na epoho, torej 1,5 s. Vrstni red kanalov se med gradnjo ohrani in mora biti enak za vse pogoje in udeležence. Koda ne preverja imen kanalov, montaže, referenciranja, filtrov ali odstranitve artefaktov; te odločitve je treba dokumentirati ob izvornih podatkih in uporabljati dosledno.
 
-Končna modelska filtracija pričakuje zapis skupin natanko Caffeine oziroma Placebo. Prazni podatkovni zapisi se preskočijo; manjkajoča ali drugače poimenovana polja povzročijo napako ali neveljavno zbirko.
+Končna modelska filtracija skupini Caffeine in Placebo primerja neodvisno od velikosti črk. Prazni podatkovni zapisi se preskočijo; manjkajoča ali drugače poimenovana polja povzročijo napako ali neveljavno zbirko.
 
 ## Ponovljivost in omejitve
 

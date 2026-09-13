@@ -1,4 +1,5 @@
 """Reference baselines and paired exact permutation tests for LOSO and GroupKFold."""
+import argparse
 import os
 import sys
 from itertools import combinations, product
@@ -11,7 +12,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, f1_score
 
-from src.train_eval.common import load_dataset_npz
+from src.train_eval.common import EXPERIMENT_DIR_ENV, find_latest_complete_experiment, load_dataset_npz
 from src.utils.helpers import load_config
 
 MODELS = {
@@ -20,6 +21,7 @@ MODELS = {
     "Features2D CNN": "features2d_cnn",
     "Hybrid Raw + Features CNN": "hybrid_cnn",
 }
+BONFERRONI_COMPARISONS = 4
 
 
 def latest_result_csv(results_root: Path, prefix: str, validation_method: str) -> Path:
@@ -51,6 +53,26 @@ def exact_sign_flip_pvalue(differences: np.ndarray) -> float:
         dtype=float,
     )
     return float((np.count_nonzero(null >= observed - 1e-12) + 1) / (len(null) + 1))
+
+
+def bonferroni_adjust(p_values: np.ndarray, n_comparisons: int = BONFERRONI_COMPARISONS) -> np.ndarray:
+    """Apply the Bonferroni correction for the planned comparison family."""
+    if n_comparisons < 1:
+        raise ValueError("n_comparisons must be at least one.")
+    values = np.asarray(p_values, dtype=float)
+    return np.minimum(values * n_comparisons, 1.0)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run baseline comparisons and exact sign-flip tests for one experiment."
+    )
+    parser.add_argument(
+        "--experiment-dir",
+        type=Path,
+        help="Experiment directory. Defaults to the newest complete experiment.",
+    )
+    return parser.parse_args()
 
 
 def baseline_metrics(true_labels: np.ndarray, fold: int, test_subjects: str) -> list[dict]:
@@ -89,15 +111,22 @@ def make_baselines(y: np.ndarray, subjects: np.ndarray, reference: pd.DataFrame,
 
 
 def main():
-    config = load_config("config.yaml")
+    args = parse_args()
+    root_config = load_config("config.yaml")
+
+    experiment_dir_value = args.experiment_dir or os.environ.get(EXPERIMENT_DIR_ENV)
+    experiment_dir = (
+        Path(experiment_dir_value).resolve()
+        if experiment_dir_value
+        else find_latest_complete_experiment(root_config)
+    )
+    used_config_path = experiment_dir / "config_used.yaml"
+    config = load_config(used_config_path) if used_config_path.is_file() else root_config
     validation_method = str(config["validation"].get("method", "LOSO")).lower()
     if validation_method not in {"loso", "groupkfold"}:
         raise ValueError(f"Unsupported validation method for statistical tests: {validation_method}")
-
-    experiment_dir_value = os.environ.get("EEG_EXPERIMENT_DIR")
-    experiment_dir = Path(experiment_dir_value).resolve() if experiment_dir_value else None
-    results_root = experiment_dir / "results" if experiment_dir is not None else Path(config["outputs"]["results_dir"])
-    statistics_dir = experiment_dir / "statistical_tests" if experiment_dir is not None else results_root
+    results_root = experiment_dir / "results"
+    statistics_dir = experiment_dir / "statistical_tests"
     statistics_dir.mkdir(parents=True, exist_ok=True)
 
     _, y, subjects, _, groups = load_dataset_npz(config["data"]["raw_dataset_output"])
@@ -176,11 +205,18 @@ def main():
                 }
             )
 
-    pd.DataFrame(rows).to_csv(statistics_dir / f"{validation_method}_statistical_tests.csv", index=False)
+    tests = pd.DataFrame(rows)
+    tests["p_value_bonferroni"] = bonferroni_adjust(tests["p_value_two_sided"].to_numpy())
+    tests.to_csv(statistics_dir / f"{validation_method}_statistical_tests.csv", index=False)
     with open(statistics_dir / "README.txt", "w", encoding="utf-8") as output:
         output.write(f"Validation method: {validation_method.upper()}\n")
         output.write(f"Evaluation unit: {unit_label}\n")
         output.write(f"Test: {test_description}\n")
+        output.write(
+            f"P-value correction: Bonferroni with m={BONFERRONI_COMPARISONS} "
+            "for the four planned model comparisons; "
+            "see p_value_bonferroni.\n"
+        )
         if validation_method == "groupkfold":
             output.write("Interpret GroupKFold fold-level p-values as exploratory because training sets overlap.\n")
 

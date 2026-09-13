@@ -1,3 +1,4 @@
+import argparse
 import os
 import sys
 import yaml
@@ -12,6 +13,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from src.utils.helpers import load_config, load_used_config, get_nested
+from src.train_eval.common import EXPERIMENT_DIR_ENV, find_latest_complete_experiment
 
 
 MODEL_ORDER = [
@@ -148,15 +150,28 @@ def write_used_configs_txt(model_configs: list, output_path: Path):
             f.write("\n\n")
 
 
-def main():
-    config = load_config("config.yaml")
-    experiment_dir_value = os.environ.get("EEG_EXPERIMENT_DIR")
-    experiment_dir = Path(experiment_dir_value).resolve() if experiment_dir_value else None
-    results_root = (
-        experiment_dir / "results"
-        if experiment_dir is not None
-        else Path(config["outputs"]["results_dir"])
+def parse_args():
+    parser = argparse.ArgumentParser(description="Create a comparison report for one completed experiment.")
+    parser.add_argument(
+        "--experiment-dir",
+        type=Path,
+        help="Completed experiment directory. Defaults to EEG_EXPERIMENT_DIR or the newest complete experiment.",
     )
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    root_config = load_config("config.yaml")
+    experiment_dir_value = args.experiment_dir or os.environ.get(EXPERIMENT_DIR_ENV)
+    experiment_dir = (
+        Path(experiment_dir_value).resolve()
+        if experiment_dir_value
+        else find_latest_complete_experiment(root_config)
+    )
+    used_config_path = experiment_dir / "config_used.yaml"
+    config = load_config(used_config_path) if used_config_path.is_file() else root_config
+    results_root = experiment_dir / "results"
 
     validation_method = config["validation"].get("method", "LOSO").lower()
     validation_method_title = validation_method.upper()
@@ -299,15 +314,7 @@ def main():
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
-    if experiment_dir is not None:
-        analysis_dir = experiment_dir / "analysis"
-    else:
-        analysis_dir_name = make_analysis_dir_name(
-            validation_method=comparison_validation_method,
-            n_validation_subjects=comparison_n_validation_subjects,
-            timestamp=timestamp,
-        )
-        analysis_dir = Path(config["outputs"]["output_dir"]) / "analysis" / analysis_dir_name
+    analysis_dir = experiment_dir / "analysis"
     analysis_dir.mkdir(parents=True, exist_ok=True)
 
     all_folds_output_path = analysis_dir / "all_model_fold_results.csv"
@@ -386,17 +393,19 @@ def main():
         output_path=analysis_dir / "model_comparison_roc_auc.png",
     )
 
+    evaluation_unit = "test subject" if validation_method == "loso" else "test fold"
+
     plot_metric_by_subject(
         all_folds_df=all_folds_df,
         metric_col="epoch_accuracy",
-        title=f"{validation_method_title} accuracy by test subject",
+        title=f"{validation_method_title} accuracy by {evaluation_unit}",
         output_path=analysis_dir / "accuracy_by_subject.png",
     )
 
     plot_metric_by_subject(
         all_folds_df=all_folds_df,
         metric_col="epoch_f1",
-        title=f"{validation_method_title} F1-score by test subject",
+        title=f"{validation_method_title} F1-score by {evaluation_unit}",
         output_path=analysis_dir / "f1_by_subject.png",
     )
 

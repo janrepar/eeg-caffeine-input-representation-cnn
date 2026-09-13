@@ -191,3 +191,5 @@ models
 
 *.mat
 *.npz
+
+AGENTS.md

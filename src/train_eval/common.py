@@ -150,6 +150,37 @@ def create_experiment_output_dirs(config, model_name: str):
     return models_dir, results_dir, plots_dir, experiment_dir.name
 
 
+def find_latest_complete_experiment(config) -> Path:
+    """Return the newest experiment containing metrics for all four models."""
+    validation_method = str(config["validation"].get("method", "LOSO")).lower()
+    experiments_dir = Path(
+        config["outputs"].get(
+            "experiments_dir",
+            Path(config["outputs"].get("output_dir", "outputs")) / "experiments",
+        )
+    )
+    metric_files = {
+        "raw_eegnetlike": f"raw_eegnetlike_{validation_method}_metrics.csv",
+        "features1d_cnn": f"features1d_cnn_{validation_method}_metrics.csv",
+        "features2d_cnn": f"features2d_cnn_{validation_method}_metrics.csv",
+        "hybrid_cnn": f"hybrid_cnn_{validation_method}_metrics.csv",
+    }
+    candidates = sorted(
+        (path for path in experiments_dir.iterdir() if path.is_dir()),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    for experiment_dir in candidates:
+        if all(
+            (experiment_dir / "results" / model_name / filename).is_file()
+            for model_name, filename in metric_files.items()
+        ):
+            return experiment_dir.resolve()
+    raise FileNotFoundError(
+        f"No complete {validation_method.upper()} experiment found in {experiments_dir}."
+    )
+
+
 def print_metric_summary(metrics):
     """
     Prints classification metrics.
@@ -225,6 +256,10 @@ def save_fold_metrics_csv(results_path, fold_rows):
         "epoch_recall",
         "epoch_f1",
         "epoch_roc_auc",
+        "cm_true_before_pred_before",
+        "cm_true_before_pred_after",
+        "cm_true_after_pred_before",
+        "cm_true_after_pred_after",
     ]
 
     with open(results_path, "w", newline="", encoding="utf-8") as file:
@@ -233,6 +268,28 @@ def save_fold_metrics_csv(results_path, fold_rows):
         writer.writerows(fold_rows)
 
     print(f"Saved fold metrics to: {results_path}")
+
+
+def save_fold_predictions(
+    output_path,
+    y_true,
+    y_pred,
+    y_prob,
+    subjects,
+    conditions,
+) -> None:
+    """Persist epoch-level predictions needed to reproduce metrics and plots."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(
+        output_path,
+        y_true=np.asarray(y_true, dtype=np.int64),
+        y_pred=np.asarray(y_pred, dtype=np.int64),
+        y_prob_after=np.asarray(y_prob, dtype=np.float32),
+        subjects=np.asarray(subjects).astype(str),
+        conditions=np.asarray(conditions).astype(str),
+    )
+    print(f"Saved epoch-level predictions: {output_path}")
 
 
 def standardize_features_train_val_test(X_train, X_val, X_test):
@@ -297,7 +354,7 @@ def standardize_raw_train_val_test(X_train, X_val, X_test):
 
 def save_loso_summary_report(output_path, analysis_name, number_of_folds, train_accuracies, test_accuracies, config, data_augmentation=False, model_config=None):
     """
-    Saves LOSO summary report as .txt.
+    Saves a cross-validation summary report as .txt.
     """
 
     output_path = Path(output_path)
@@ -318,7 +375,8 @@ def save_loso_summary_report(output_path, analysis_name, number_of_folds, train_
     validation_config = config["validation"]
 
     with open(output_path, "w", encoding="utf-8") as file:
-        file.write("LOSO Cross-Validation Summary\n")
+        validation_method = str(validation_config.get("method", "LOSO")).upper()
+        file.write(f"{validation_method} Cross-Validation Summary\n")
         file.write("=============================\n\n")
 
         file.write(f"Analysis: {analysis_name}\n")

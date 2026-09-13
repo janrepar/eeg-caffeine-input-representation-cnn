@@ -1,17 +1,17 @@
-metric,comparison,test,mean_difference,p_value_two_sided,n_units,unit
-epoch_accuracy,Raw EEGNet-like CNN vs chance (0.5),exact sign-flip permutation across participants,0.04050558944916187,0.00634455832113226,11,participants
-epoch_accuracy,Features1D CNN vs chance (0.5),exact sign-flip permutation across participants,0.020764982805352647,0.5490483162518301,11,participants
-epoch_accuracy,Features2D CNN vs chance (0.5),exact sign-flip permutation across participants,0.019586911881069754,0.7920937042459737,11,participants
-epoch_accuracy,Hybrid Raw + Features CNN vs chance (0.5),exact sign-flip permutation across participants,0.05070532503885767,0.11273792093704246,11,participants
-epoch_accuracy,Raw EEGNet-like CNN vs Features1D CNN,exact sign-flip permutation across participants,0.019740606643809222,0.6095656417764763,11,participants
-epoch_accuracy,Raw EEGNet-like CNN vs Features2D CNN,exact sign-flip permutation across participants,0.020918677568092115,0.7618350414836506,11,participants
-epoch_accuracy,Raw EEGNet-like CNN vs Hybrid Raw + Features CNN,exact sign-flip permutation across participants,-0.010199735589695806,0.7608589555880918,11,participants
-epoch_accuracy,Features1D CNN vs Features2D CNN,exact sign-flip permutation across participants,0.0011780709242828933,0.9795021961932651,11,participants
-epoch_accuracy,Features1D CNN vs Hybrid Raw + Features CNN,exact sign-flip permutation across participants,-0.029940342233505026,0.14006832601268912,11,participants
-epoch_accuracy,Features2D CNN vs Hybrid Raw + Features CNN,exact sign-flip permutation across participants,-0.03111841315778792,0.6349438750610054,11,participants
-epoch_f1,Raw EEGNet-like CNN vs Features1D CNN,exact sign-flip permutation across participants,0.05311707108966512,0.3870180575890678,11,participants
-epoch_f1,Raw EEGNet-like CNN vs Features2D CNN,exact sign-flip permutation across participants,0.09756605543535986,0.25036603221083453,11,participants
-epoch_f1,Raw EEGNet-like CNN vs Hybrid Raw + Features CNN,exact sign-flip permutation across participants,0.04988251551516026,0.5529526598340654,11,participants
-epoch_f1,Features1D CNN vs Features2D CNN,exact sign-flip permutation across participants,0.04444898434569474,0.6398243045387995,11,participants
-epoch_f1,Features1D CNN vs Hybrid Raw + Features CNN,exact sign-flip permutation across participants,-0.0032345555745048504,0.9834065397755003,11,participants
-epoch_f1,Features2D CNN vs Hybrid Raw + Features CNN,exact sign-flip permutation across participants,-0.04768353992019958,0.7266959492435334,11,participants
+metric,comparison,test,mean_difference,p_value_two_sided,n_units,unit,p_value_bonferroni
+epoch_accuracy,Raw EEGNet-like CNN vs chance (0.5),exact sign-flip permutation across participants,0.04050558944916187,0.00634455832113226,11,participants,0.02537823328452904
+epoch_accuracy,Features1D CNN vs chance (0.5),exact sign-flip permutation across participants,0.020764982805352647,0.5490483162518301,11,participants,1.0
+epoch_accuracy,Features2D CNN vs chance (0.5),exact sign-flip permutation across participants,0.019586911881069754,0.7920937042459737,11,participants,1.0
+epoch_accuracy,Hybrid Raw + Features CNN vs chance (0.5),exact sign-flip permutation across participants,0.05070532503885767,0.11273792093704246,11,participants,0.45095168374816985
+epoch_accuracy,Raw EEGNet-like CNN vs Features1D CNN,exact sign-flip permutation across participants,0.019740606643809222,0.6095656417764763,11,participants,1.0
+epoch_accuracy,Raw EEGNet-like CNN vs Features2D CNN,exact sign-flip permutation across participants,0.020918677568092115,0.7618350414836506,11,participants,1.0
+epoch_accuracy,Raw EEGNet-like CNN vs Hybrid Raw + Features CNN,exact sign-flip permutation across participants,-0.010199735589695806,0.7608589555880918,11,participants,1.0
+epoch_accuracy,Features1D CNN vs Features2D CNN,exact sign-flip permutation across participants,0.0011780709242828933,0.9795021961932651,11,participants,1.0
+epoch_accuracy,Features1D CNN vs Hybrid Raw + Features CNN,exact sign-flip permutation across participants,-0.029940342233505026,0.14006832601268912,11,participants,0.5602733040507565
+epoch_accuracy,Features2D CNN vs Hybrid Raw + Features CNN,exact sign-flip permutation across participants,-0.03111841315778792,0.6349438750610054,11,participants,1.0
+epoch_f1,Raw EEGNet-like CNN vs Features1D CNN,exact sign-flip permutation across participants,0.05311707108966512,0.3870180575890678,11,participants,1.0
+epoch_f1,Raw EEGNet-like CNN vs Features2D CNN,exact sign-flip permutation across participants,0.09756605543535986,0.25036603221083453,11,participants,1.0
+epoch_f1,Raw EEGNet-like CNN vs Hybrid Raw + Features CNN,exact sign-flip permutation across participants,0.04988251551516026,0.5529526598340654,11,participants,1.0
+epoch_f1,Features1D CNN vs Features2D CNN,exact sign-flip permutation across participants,0.04444898434569474,0.6398243045387995,11,participants,1.0
+epoch_f1,Features1D CNN vs Hybrid Raw + Features CNN,exact sign-flip permutation across participants,-0.0032345555745048504,0.9834065397755003,11,participants,1.0
+epoch_f1,Features2D CNN vs Hybrid Raw + Features CNN,exact sign-flip permutation across participants,-0.04768353992019958,0.7266959492435334,11,participants,1.0

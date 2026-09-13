@@ -13,7 +13,7 @@ from src.models.cnn_hybrid import CNNHybrid
 from src.train_eval.split import (create_loso_splits, create_groupkfold_splits, create_train_val_split_by_subject)
 from src.train_eval.train import train_hybrid_model
 from src.train_eval.evaluate import (predict_hybrid_multiclass_model, compute_binary_metrics)
-from src.train_eval.common import (load_dataset_npz, get_device, create_experiment_output_dirs, print_metric_summary, summarize_metric_list, save_fold_metrics_csv, save_loso_summary_report, save_config_copy, save_model_checkpoint, standardize_raw_train_val_test, standardize_features_train_val_test, set_random_seed, print_model_parameter_count)
+from src.train_eval.common import (load_dataset_npz, get_device, create_experiment_output_dirs, print_metric_summary, summarize_metric_list, save_fold_metrics_csv, save_loso_summary_report, save_config_copy, save_model_checkpoint, save_fold_predictions, standardize_raw_train_val_test, standardize_features_train_val_test, set_random_seed, print_model_parameter_count)
 from src.train_eval.visualizations import (plot_training_history, plot_training_history_by_iteration, save_confusion_matrix_plot, plot_metric_by_fold, plot_epoch_metrics_summary, plot_roc_curve_for_fold, plot_all_folds_roc_curve, save_final_confusion_matrix, plot_loso_performance_summary)
 from src.train_eval.hyperparameters import (apply_hyperparameters, load_groupkfold_loso_aggregate, write_hyperparameter_manifest)
 from src.utils.helpers import load_config
@@ -99,7 +99,7 @@ def main():
     print(f"\nValidation method: {validation_method}")
 
     if analysis_type == "caffeine_before_vs_after":
-        mask = groups == "Caffeine"
+        mask = np.char.lower(groups.astype(str)) == "caffeine"
 
         X_raw = X_raw[mask]
         X_feat = X_feat[mask]
@@ -115,7 +115,7 @@ def main():
         print("Number of subjects:", len(np.unique(subjects)))
 
     elif analysis_type == "placebo_before_vs_after":
-        mask = groups == "Placebo"
+        mask = np.char.lower(groups.astype(str)) == "placebo"
 
         X_raw = X_raw[mask]
         X_feat = X_feat[mask]
@@ -421,6 +421,16 @@ def main():
         all_y_true_epoch.extend(y_test.tolist())
         all_y_pred_epoch.extend(y_pred.tolist())
 
+        if outputs_config.get("save_predictions", True):
+            save_fold_predictions(
+                results_dir / "predictions" / f"epoch_fold_{fold_idx}_subjects_{test_subject_label}.npz",
+                y_test,
+                y_pred,
+                y_prob,
+                subjects[test_mask],
+                conditions[test_mask],
+            )
+
         all_epoch_metrics.append(epoch_metrics)
 
         fold_rows.append({
@@ -436,7 +446,11 @@ def main():
             "epoch_precision": epoch_metrics["precision"],
             "epoch_recall": epoch_metrics["recall"],
             "epoch_f1": epoch_metrics["f1"],
-            "epoch_roc_auc": epoch_metrics.get("roc_auc", np.nan)
+            "epoch_roc_auc": epoch_metrics.get("roc_auc", np.nan),
+            "cm_true_before_pred_before": int(epoch_metrics["confusion_matrix"][0, 0]),
+            "cm_true_before_pred_after": int(epoch_metrics["confusion_matrix"][0, 1]),
+            "cm_true_after_pred_before": int(epoch_metrics["confusion_matrix"][1, 0]),
+            "cm_true_after_pred_after": int(epoch_metrics["confusion_matrix"][1, 1]),
         })
 
         fold_hyperparameters.append({

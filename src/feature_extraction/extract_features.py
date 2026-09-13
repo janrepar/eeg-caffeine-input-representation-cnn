@@ -28,7 +28,7 @@ def get_feature_names_per_channel(feature_config: dict | None = None) -> list[st
                 "theta": [4, 8],
                 "alpha": [8, 13],
                 "beta": [13, 30],
-                "gamma": [30, 100],
+                "gamma": [30, 45],
             },
         }
 
